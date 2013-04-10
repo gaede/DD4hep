@@ -114,7 +114,9 @@ namespace DD4hep {
   }
 
 
-  std::vector<double>  FixedPadAngleDiskLayout::getPadCenter (int padIndex) const {
+  // std::vector<double>  FixedPadAngleDiskLayout::getPadCenter (int padIndex) const {
+  gear::Vector2D FixedPadAngleDiskLayout::getPadCenter (int padIndex) const {
+
     if(padIndex>getNPads())
       throw OutsideGeometryException("getPadCenter: Requested pad not on module querried!");
     int row=getRowNumber(padIndex);
@@ -129,11 +131,12 @@ namespace DD4hep {
     Position global_w, local(pad_x,pad_y,0); 
     module.localToWorld(local,global_w);
 
-    vector<double> center;
-    center.push_back(global_w.X());
-    center.push_back(global_w.Y());
-    return center;
-  }
+    // vector<double> center;gear::Vector2D
+    // center.push_back(global_w.X());
+    // center.push_back(global_w.Y());
+    // return center;
+    return gear::Vector2D( global_w.X(), global_w.Y() ) ;
+ }
   
   int FixedPadAngleDiskLayout::getNearestPad(double c0,double c1)const {
     //input coordinates are global

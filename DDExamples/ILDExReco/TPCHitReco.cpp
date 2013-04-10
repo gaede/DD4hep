@@ -93,7 +93,7 @@ int main(int argc,char** argv)  {
       for ( it1=padmap_EP1.begin() ; it1 != padmap_EP1.end(); it1++ )
 	{
 	  TPCModule mymod=tpc.getModule(it1->first.first,0);
-	  std::vector<double> center=mymod.getPadCenter(it1->first.second);
+	  gear::Vector2D center=mymod.getPadCenter(it1->first.second);
 	   
 	  xPos.push_back(center[0]);
 	  yPos.push_back(center[1]);
@@ -110,7 +110,7 @@ int main(int argc,char** argv)  {
 	  catch(OutsideGeometryException e){endplate2=false;};
 	  if(!endplate2)
 	    continue;
-	  std::vector<double> center=tpc.getModule(it2->first.first,1).getPadCenter(it2->first.second);
+	  gear::Vector2D center=tpc.getModule(it2->first.first,1).getPadCenter(it2->first.second);
 	  
 	  xPos.push_back(center[0]);
 	  yPos.push_back(center[1]);

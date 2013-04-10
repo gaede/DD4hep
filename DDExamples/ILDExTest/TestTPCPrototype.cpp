@@ -156,13 +156,13 @@ int main(int argc,char** argv)  {
       myfile<<"FAILED tpc.getModule(0,0).getLeftNeighbour(3): 2!="<<tpc.getModule(0,0).getLeftNeighbour(3)<<endl;
       failures++;
     }
-  std::vector<double> center1=tpc.getModule(0,0).getPadCenter(10);
+  gear::Vector2D center1=tpc.getModule(0,0).getPadCenter(10);
   if(fabs(center1[0]-179)>myPrecision && fabs(center1[1]-128)>myPrecision)
     {
       myfile<<"FAILED tpc.getModule(0,0).getPadCenter(10): -179 128!= " <<center1[0]<<" "<<center1[1]<<endl;
       failures++;
     }
-  std::vector<double> center2=tpc.getModule(8,0).getPadCenter(10);
+  gear::Vector2D center2=tpc.getModule(8,0).getPadCenter(10);
   if(fabs(center2[0]-121)>myPrecision && fabs(center2[1]-272)>myPrecision)
     {
       myfile<<"FAILED tpc.getModule(8,0).getPadCenter(10): 121 -272!= " <<center2[0]<<" "<<center2[1]<<endl;

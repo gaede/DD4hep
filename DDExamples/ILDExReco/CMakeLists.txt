@@ -1,9 +1,13 @@
 cmake_minimum_required(VERSION 2.8.3 FATAL_ERROR)
 
+find_package(GEAR REQUIRED)
+
+
 include_directories( ${CMAKE_SOURCE_DIR}/DDCore/include
                      ${CMAKE_SOURCE_DIR}/DDExamples/ILDExDet/include
                      ${CMAKE_CURRENT_SOURCE_DIR}/include
-                     ${ROOT_INCLUDE_DIR})
+                     ${ROOT_INCLUDE_DIR}
+		     ${GEAR_INCLUDE_DIRS} )
 
 add_executable(ILDExReco ILDExReco.cpp src/GearTPC.cpp)
 add_executable(RecoTPCPrototype RecoTPCPrototype.cpp src/GearTPC.cpp)

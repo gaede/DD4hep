@@ -2,10 +2,13 @@ cmake_minimum_required(VERSION 2.8.3 FATAL_ERROR)
 
 find_package(LCIO REQUIRED) 
 
+find_package(GEAR REQUIRED)
+
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/include
                      ${CMAKE_SOURCE_DIR}/DDCore/include 
                      ${ROOT_INCLUDE_DIR}
-		     ${LCIO_INCLUDE_DIRS})
+		     ${LCIO_INCLUDE_DIRS} 
+		     ${GEAR_INCLUDE_DIRS})
 
 file(GLOB sources src/*.cpp src/compact/*.cpp)
 file(GLOB headers include/*.h)
@@ -20,6 +23,6 @@ if(DD4HEP_USE_PYROOT)
 endif()
 
 add_library(ILDEx SHARED ${sources})
-target_link_libraries(ILDEx DD4hepCore  ${LCIO_LIBRARIES})
+target_link_libraries(ILDEx DD4hepCore  ${LCIO_LIBRARIES} ${GEAR_LIBRARIES} )
 #---Rootmap generation--------------------------------------------------------------
 dd4hep_generate_rootmap(ILDEx)

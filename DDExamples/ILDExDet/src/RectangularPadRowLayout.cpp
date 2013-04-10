@@ -109,7 +109,8 @@ namespace DD4hep {
   }
 
 
-  std::vector<double>  RectangularPadRowLayout::getPadCenter (int pad) const {
+  //  std::vector<double>  RectangularPadRowLayout::getPadCenter (int pad) const {
+  gear::Vector2D RectangularPadRowLayout::getPadCenter (int pad) const {
     if(pad>getNPads())
       throw OutsideGeometryException("getPadCenter: Requested pad not on module querried!");
     int row=getRowNumber(pad);
@@ -121,10 +122,11 @@ namespace DD4hep {
     Position global_w, local(pad_x,pad_y,0);
     module.localToWorld(local,global_w);
 
-    vector<double> center;
-    center.push_back(global_w.X());
-    center.push_back(global_w.Y());
-    return center;
+    // vector<double> center;
+    // center.push_back(global_w.X());
+    // center.push_back(global_w.Y());
+    // return center;
+    return gear::Vector2D( global_w.X(), global_w.Y() ) ;
   }
   
   int RectangularPadRowLayout::getNearestPad(double c0,double c1)const {

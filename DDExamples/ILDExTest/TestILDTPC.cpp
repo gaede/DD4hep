@@ -36,6 +36,7 @@ int main(int argc,char** argv)  {
   double myPrecision=1e-3;
   int failures=0;
   GearTPC tpc(lcdd.detector("TPC"));
+
   if(fabs(tpc.getInnerRadius() - 350) > myPrecision )
     {
       myfile << "FAILED tpc.getInnerRadius(): 350!=" <<tpc.getInnerRadius()<<endl;
@@ -174,25 +175,25 @@ int main(int argc,char** argv)  {
       failures++;
     }
   
-  std::vector<double> center1=tpc.getModule(0,0).getPadCenter(10);
+  gear::Vector2D center1=tpc.getModule(0,0).getPadCenter(10);
   if(fabs(center1[0]-406.515) > myPrecision || fabs(center1[1]-19.8558) > myPrecision)
     {
       myfile <<"FAILED  tpc.getModule(0,0).getPadCenter(10)  406.515 19.8558 != "<<center1[0]<<" "<<center1[1]<<endl;
       failures++;
     }
-  std::vector<double> center2=tpc.getModule(1,0).getPadCenter(10);
+  gear::Vector2D center2=tpc.getModule(1,0).getPadCenter(10);
   if(fabs(center2[0]-106.736)> myPrecision || fabs(center2[1]-392.755)> myPrecision)
     {
       myfile <<"FAILED tpc.getModule(1,0).getPadCenter(10) 106.736 392.755 != "<<center2[0]<<" "<<center2[1]<<endl;
       failures++;
     }
-  std::vector<double> center1a=tpc.getModule(0,1).getPadCenter(10);
+  gear::Vector2D center1a=tpc.getModule(0,1).getPadCenter(10);
   if(fabs(center1a[0]-(-406.515)) > myPrecision || fabs(center1a[1]-19.8558) > myPrecision)
     {
       myfile <<"FAILED tpc.getModule(0,1).getPadCenter(10) -406.515 19.8558 != "<<center1a[0]<<" "<<center1a[1]<<endl;
       failures++;
     }
-  std::vector<double> center2a=tpc.getModule(1,1).getPadCenter(10);
+  gear::Vector2D center2a=tpc.getModule(1,1).getPadCenter(10);
   if(fabs(center2a[0]-(-106.736))> myPrecision || fabs(center2a[1]-392.755) > myPrecision)
     {
       myfile <<"FAILED tpc.getModule(1,1).getPadCenter(10) -106.736 392.755 != "<<center2a[0]<<" "<<center2a[1]<<endl;

@@ -69,7 +69,8 @@ namespace DD4hep {
     virtual int	getLeftNeighbour (int padIndex) const;
     /** The center of a pad on this module in global coordinates.
      */
-    virtual std::vector<double>	getPadCenter (int padIndex) const;
+    //    virtual std::vector<double>	getPadCenter (int padIndex) const;
+    virtual gear::Vector2D  getPadCenter (int padIndex) const;
     /** Closest pad to a given location.
      */
     virtual int getNearestPad (double c0, double c1) const;

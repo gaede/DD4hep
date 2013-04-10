@@ -80,7 +80,7 @@ int main(int argc,char** argv)  {
       double x=tube->GetRmin()+2+10*p;
       TPCModule mod=tpc.getNearestModule(x,y,0);
       int index=  mod.getNearestPad(x,y);
-      std::vector<double> center= mod.getPadCenter(index);
+      gear::Vector2D center= mod.getPadCenter(index);
       cout<<mod.id()<<" "<<x-center[0]<<" "<<y-center[1]<<endl;
     }
   return 0;

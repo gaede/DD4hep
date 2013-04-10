@@ -50,15 +50,20 @@ int main(int argc,char** argv)  {
   for(int m=0;m<mymods.size();m++)
     {
       TPCModule mod=mymods[m];
-      cout<<mod.id()<<" "<<mod.getPadType()<<" "<<mod.getNPads()<<" "<<mod.getNRows()<<endl;
+      cout<<mod.id()<<" "<<mod.getPadShape()<<" "<<mod.getNPads()<<" "<<mod.getNRows()<<endl;
     }
 
   TPCModule mod=mymods[0];
-  cout<<"getNPadsInRow: "<< mod.getNPadsInRow(0)<<" "<< mod.getNPadsInRow(mod.getNRows()-1)<<endl;
+  //  cout<<"getNPadsInRow: "<< mod.getNPadsInRow(0)<<" "<< mod.getNPadsInRow(mod.getNRows()-1)<<endl;
+  cout<<"getNPadsInRow: "<< mod.getPadsInRow(0).size()<<" "<< mod.getPadsInRow(mod.getNRows()-1).size()<<endl;
   cout<<"getRowHeight: "<< mod.getRowHeight(0)<<" "<< mod.getRowHeight(mod.getNRows()-1)<<endl;
   int padindex_min=mod.getPadIndex(0,0);
-  int padindex_max=mod.getPadIndex(mod.getNRows()-1,mod.getNPadsInRow(mod.getNRows()-1)-1);
-  cout<<"pad index :"<<padindex_min<<" =(0,0)"<<padindex_max<<" =("<<mod.getNRows()-1<<","<<mod.getNPadsInRow(mod.getNRows()-1)-1<<")"<<endl;
+  //  int padindex_max=mod.getPadIndex(mod.getNRows()-1,mod.getNPadsInRow(mod.getNRows()-1)-1);
+  int padindex_max=mod.getPadIndex(mod.getNRows()-1,mod.getPadsInRow(mod.getNRows()-1).size()-1);
+
+  //  cout<<"pad index :"<<padindex_min<<" =(0,0)"<<padindex_max<<" =("<<mod.getNRows()-1<<","<<mod.getNPadsInRow(mod.getNRows()-1)-1<<")"<<endl;
+  cout<<"pad index :"<<padindex_min<<" =(0,0)"<<padindex_max<<" =("<<mod.getNRows()-1<<","<<mod.getPadsInRow(mod.getNRows()-1).size()-1<<")"<<endl;
+
   cout<<"Row nr: "<<  mod.getRowNumber(padindex_min)<<" "<< mod.getRowNumber(padindex_max)<<endl;
   cout<<"Pad nr: "<<  mod.getPadNumber(padindex_min)<<" "<< mod.getPadNumber(padindex_max)<<endl;
   cout<<"Pad pitch: "<<  mod.getPadPitch(padindex_min)<<" "<< mod.getPadPitch(padindex_max)<<endl;

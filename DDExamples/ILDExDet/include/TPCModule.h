@@ -15,10 +15,13 @@
 #include <DD4hepExceptions.h> 
 #include <PadLayout.h> 
 
+#include "gear/TPCModule.h"
+#include "gearimpl/GearParametersImpl.h"
+
 namespace DD4hep {
   
  
-  struct TPCModule : public Geometry::DetElement {
+  struct TPCModule : public Geometry::DetElement , public gear::TPCModule, gear::GearParametersImpl {
     typedef Geometry::Ref_t Ref_t;
 
     
@@ -40,19 +43,58 @@ namespace DD4hep {
      */
     int getID() const;
 
-    //Now all the functionality that depends on specific implementation of padlayout
+
+    // ---- add additional wrappers to PadLayout methods  -----------
+    virtual bool isInsidePad(double c0, double c1) const { return padLayout->isInsidePad(c0,c1) ; }
+    virtual int getCoordinateType() const { return padLayout->getCoordinateType() ; }
+    virtual int getPadLayoutImplType() const { return padLayout->getPadLayoutImplType() ; } 
+    virtual int getPadLayoutType() const { return padLayout->getPadLayoutType() ; }
+    virtual const std::vector<double>  & getPlaneExtent() const  throw (gear::Exception, std::exception ) { return padLayout->getPlaneExtent() ; }
+    virtual double getPadHeight(int padIndex) const { return padLayout->getPadHeight(padIndex) ; }
+    virtual bool isInsidePad(double c0, double c1, int padIndex) const { return padLayout->isInsidePad(c0,c1) ; }
+    virtual double getPadWidth(int padIndex) const { return padLayout->getPadWidth(padIndex) ; }
+    virtual PadRowLayout2D * clone() const { return padLayout->clone() ; }
+    virtual double getDistanceToPad(double c0, double c1, int padIndex) const { return padLayout->getDistanceToPad(c0,c1,padIndex) ; } 
+
+    virtual std::string getPadType() const{ return padLayout-> getPadType() ; } 
+    const std::vector<int>& getPadsInRow(int row) const { return padLayout->getPadsInRow(row) ; } 
+
+    //------------------  FIXME: empty default implementations for unimplemented functions --------------
+    virtual const std::vector<double>  & getModuleExtent() const { throwNIE() ; };
+    virtual const std::vector<double>  & getLocalModuleExtent() const { throwNIE() ; };
+    virtual bool isInsideModule(double c0, double c1) const { throwNIE() ; };
+    virtual bool isInsideModule(double c0, double c1,double z) const { throwNIE() ; };
+    virtual double getReadoutFrequency() const { throwNIE() ; };
+    virtual const gear::Vector2D & getOffset() const { throwNIE() ; };
+     virtual double getZPosition() const throw (TPCModule::NoZPositionException) { throwNIE() ; };
+    virtual double getAngle() const { throwNIE() ; };
+    virtual double getDistanceToModule(double c0, double c1) const { throwNIE() ; };
+    virtual int getModuleID() const { throwNIE() ; };
+    virtual bool isOverlapping(gear::TPCModule * testThisModule) const { throwNIE() ; };
+    virtual double getBorderWidth() const { throwNIE() ; };
+    virtual int getTPCCoordinateType() const { throwNIE() ; };
+    virtual const PadRowLayout2D & getLocalPadLayout() const { throwNIE() ; };
+    virtual gear::Vector2D globalToLocal(double c0, double c1) const { throwNIE() ; };
+    virtual gear::Vector2D localToGlobal(double c0, double c1) const { throwNIE() ; }; 
+   //--------------------------------------------------------------------------------------------------
+
+   //Now all the functionality that depends on specific implementation of padlayout
     /** The type of pad layout (segmentation) on this module.
      */
-    std::string getPadType() const { return padLayout->getPadType();  }
+    //    std::string getPadType() const { return padLayout->getPadType();  }
+    int getPadShape() const { return padLayout->getPadShape();  }
+
     /** The total number of pads on this module.
      */
     int getNPads()  const { return padLayout->getNPads(); }
     /** The total number of rows on this module.
      */
     int getNRows() const { return padLayout->getNRows(); }
+
     /** The number of pads in a given row on this module.
      */
     int  getNPadsInRow(int row)const { return padLayout->getNPadsInRow(row); }
+
      /** The height of a given row on this module.
      */
     double getRowHeight (int row) const { return padLayout->getRowHeight (row); }
@@ -76,7 +118,8 @@ namespace DD4hep {
     int	getLeftNeighbour (int padIndex) const { return padLayout->getLeftNeighbour (padIndex) ;}
     /** The center of a pad on this module in global coordinates.
      */
-    std::vector<double>	getPadCenter (int padIndex) const { return padLayout->getPadCenter (padIndex) ;}
+    //    std::vector<double>	getPadCenter (int padIndex) const { return padLayout->getPadCenter (padIndex) ;}
+    gear::Vector2D getPadCenter (int padIndex) const { return padLayout->getPadCenter (padIndex) ;}
     /** Closest pad to a given location.
      */
     int getNearestPad (double c0, double c1) const { return padLayout->getNearestPad (c0,c1); }

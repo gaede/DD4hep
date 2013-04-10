@@ -61,10 +61,12 @@ int main(int argc,char** argv)  {
 
   TPCModule mymod=tpc.getModule(10,1);
   cout << "-----> Module 10 EP 1 ID:\t " << mymod.getID()<<endl;
-  cout << "-----> Module 10 Pads:\t " << mymod.getPadType()<<endl;
+  //  cout << "-----> Module 10 Pads:\t " << mymod.getPadType()<<endl;
+  cout << "-----> Module 10 Pads:\t " << mymod.getPadShape()<<endl;
   cout << "-----> Module 10 NPads:\t " << mymod.getNPads()<<endl;
   cout << "-----> Module 10 pad rows:\t " << mymod.getNRows()<<endl;
-  cout << "-----> Module 10 pads in rows:\t " << mymod.getNPadsInRow(0)<<endl;
+  //  cout << "-----> Module 10 pads in rows:\t " << mymod.getNPadsInRow(0)<<endl;
+  cout << "-----> Module 10 pads in rows:\t " << mymod.getPadsInRow(0).size() <<endl;
   cout << "-----> Module 10 row height:\t " << mymod.getRowHeight(0)<<endl;
   cout << "-----> Module 10 pad pitch:\t " << mymod.getPadPitch(1)<<endl;
   //padindex should be obtained by using getPadIndex(row,pad) not assumed by hand like here in this example
@@ -73,15 +75,28 @@ int main(int argc,char** argv)  {
   cout << "-----> Module 10 pad index (1,5):\t " << mymod.getPadIndex(1,5)<<endl;
   cout << "-----> RightNeighbour of 0:\t "<<tpc.getModule(0,0).getRightNeighbour(0)<<endl;
   cout << "-----> LeftNeighbour of 3:\t "<<tpc.getModule(0,0).getLeftNeighbour(3)<<endl;
-  std::vector<double> center1=tpc.getModule(0,0).getPadCenter(10);
+
+  // std::vector<double> center1=tpc.getModule(0,0).getPadCenter(10);
+  // cout <<"-----> Center of mod0/pad10 EP0:\t "<<center1[0]<<" "<<center1[1]<<endl;
+  // std::vector<double> center2=tpc.getModule(1,0).getPadCenter(10);
+  // cout <<"-----> Center of mod1/pad10 EP0:\t "<<center2[0]<<" "<<center2[1]<<endl;
+  // std::vector<double> center1a=tpc.getModule(0,1).getPadCenter(10);
+  // cout <<"-----> Center of mod0/pad10 EP1:\t "<<center1a[0]<<" "<<center1a[1]<<endl;
+  // std::vector<double> center2a=tpc.getModule(1,1).getPadCenter(10);
+  // cout <<"-----> Center of mod1/pad10 EP1:\t "<<center2a[0]<<" "<<center2a[1]<<endl;
+  // //padindex should be obtained by using getPadIndex(row,pad) not assumed by hand like here in this example
+
+  gear::Vector2D center1=tpc.getModule(0,0).getPadCenter(10);
   cout <<"-----> Center of mod0/pad10 EP0:\t "<<center1[0]<<" "<<center1[1]<<endl;
-  std::vector<double> center2=tpc.getModule(1,0).getPadCenter(10);
+  gear::Vector2D center2=tpc.getModule(1,0).getPadCenter(10);
   cout <<"-----> Center of mod1/pad10 EP0:\t "<<center2[0]<<" "<<center2[1]<<endl;
-  std::vector<double> center1a=tpc.getModule(0,1).getPadCenter(10);
+  gear::Vector2D center1a=tpc.getModule(0,1).getPadCenter(10);
   cout <<"-----> Center of mod0/pad10 EP1:\t "<<center1a[0]<<" "<<center1a[1]<<endl;
-  std::vector<double> center2a=tpc.getModule(1,1).getPadCenter(10);
+  gear::Vector2D center2a=tpc.getModule(1,1).getPadCenter(10);
   cout <<"-----> Center of mod1/pad10 EP1:\t "<<center2a[0]<<" "<<center2a[1]<<endl;
   //padindex should be obtained by using getPadIndex(row,pad) not assumed by hand like here in this example
+
+
   cout <<"-----> Nearest Pad 10:\t "<<tpc.getModule(0,0).getNearestPad(tpc.getModule(0,0).getPadCenter(10)[0],tpc.getModule(0,0).getPadCenter(10)[1])<<endl;
   cout <<"-----> Nearest Pad 0:\t "<<tpc.getModule(5,0).getNearestPad(tpc.getModule(5,0).getPadCenter(0)[0],tpc.getModule(5,0).getPadCenter(0)[1])<<endl;
   cout <<"-----> Nearest Pad 5:\t "<<tpc.getModule(5,0).getNearestPad(tpc.getModule(5,0).getPadCenter(5)[0],tpc.getModule(5,0).getPadCenter(5)[1])<<endl;

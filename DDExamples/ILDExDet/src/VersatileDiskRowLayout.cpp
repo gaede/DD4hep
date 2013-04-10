@@ -128,7 +128,8 @@ namespace DD4hep {
   }
 
 
-  std::vector<double>  VersatileDiskRowLayout::getPadCenter (int padIndex) const {
+  //  std::vector<double>  VersatileDiskRowLayout::getPadCenter (int padIndex) const {
+  gear::Vector2D  VersatileDiskRowLayout::getPadCenter (int padIndex) const {
     int rowNum =  getRowNumber( padIndex ) ;
     int padNum =  getPadNumber( padIndex ) ;
     
@@ -146,11 +147,12 @@ namespace DD4hep {
     Position global_w, local(pad_x,pad_y,0); 
     module.localToWorld(local,global_w);
     //cout<<"getPadCenter: "<<r<<" "<<phi_mm<<" "<<phi<<" local: "<<pad_x<<"  "<<pad_y<<"  global: "<<global_w.x<<","<<global_w.y<<endl;
-    vector<double> center;
-    center.push_back(global_w.X());
-    center.push_back(global_w.Y());
 
-    return center;
+    // vector<double> center;
+    // center.push_back(global_w.X());
+    // center.push_back(global_w.Y());
+    // return center;
+    return gear::Vector2D( global_w.X(), global_w.Y() ) ;
   }
   
   int VersatileDiskRowLayout::getNearestPad(double c0,double c1)const {

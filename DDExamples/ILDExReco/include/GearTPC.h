@@ -16,11 +16,15 @@
 #include "TPCModule.h"
 #include <DD4hepExceptions.h> 
 
+#include "gear/GEAR.h"
+#include "gear/TPCParameters.h"
+#include "gearimpl/GearParametersImpl.h"
+
 namespace DD4hep {
   
 
   
-  struct GearTPC : public Geometry::DetElement {
+  struct GearTPC : public Geometry::DetElement, public gear::TPCParameters , public gear::GearParametersImpl{
     GearTPC(const Geometry::Ref_t& e);
     
     /** Inner Radius of the TPC in mm.
@@ -69,6 +73,29 @@ namespace DD4hep {
     /** Returns position of gas volume placement.
      */
     std::vector<double> getPosition() const;
-  };
+
+
+
+    //FIXME: unimplemented functions :
+    virtual const gear::PadRowLayout2D & getPadLayout() const { throwNIE() ; };
+    virtual bool isInsidePad(double c0, double c1, double z) const { throwNIE() ; };
+    virtual const std::vector<double>  & getPlaneExtent() const { throwNIE() ; };
+    virtual const TPCModule & getNearestModule(double c0, double c1) const { throwNIE() ; };
+    virtual gear::GlobalPadIndex getNearestPad(double c0, double c1, double z) const { throwNIE() ; };
+    virtual double getDriftVelocity() const { throwNIE() ; };
+    virtual int getCoordinateType() const { throwNIE() ; };
+    virtual bool isInsidePad(double c0, double c1) const { throwNIE() ; };
+    virtual const  gear::TPCModule & getNearestModule(double c0, double c1, double z) const { throwNIE() ; };
+    virtual int getNModules() const { throwNIE() ; };
+
+    virtual const std::vector<gear::TPCModule *>  & getModules() const { throwNIE() ; };
+
+    virtual const TPCModule & getModule(int ID) const { throwNIE() ; };
+    virtual bool isInsideModule(double c0, double c1, double z) const { throwNIE() ; };
+    virtual gear::GlobalPadIndex getNearestPad(double c0, double c1) const { throwNIE() ; };
+    virtual double getReadoutFrequency() const { throwNIE() ; };
+    virtual bool isInsideModule(double c0, double c1) const { throwNIE() ; };
+
+ };
 }
 #endif
