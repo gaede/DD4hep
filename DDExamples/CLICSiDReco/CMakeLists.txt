@@ -10,6 +10,8 @@ file(GLOB sources src/*.cpp)
 include(DD4hep_XML_setup)
 
 add_executable(CLICSiDCalorimeterReco src/CLICSiDCalorimeterReco.cpp)
+add_executable(TGeoTest src/TGeoTest.cpp)
 #add_library(CLICSiDReco SHARED ${sources})
 #target_link_libraries(CLICSiDReco DD4hepCore CLICSiD ${ROOT_LIBRARIES})
 target_link_libraries(CLICSiDCalorimeterReco DD4hepCore CLICSiD ${ROOT_LIBRARIES})
+target_link_libraries(TGeoTest DD4hepCore CLICSiD ${ROOT_LIBRARIES})
