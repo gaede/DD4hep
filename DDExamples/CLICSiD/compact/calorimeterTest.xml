@@ -15,62 +15,38 @@
         <constant name="tracking_region_radius" value="500"/>
         <constant name="tracking_region_zmax" value="500"/>
         <constant name="CrossingAngle" value="0.020"/>
+
+        <constant name="CaloSides" value="12"/>
+        <constant name="EcalBarrel_rmin" value="1265.0"/>
+        <constant name="EcalBarrel_zmax" value="1765.0"/>
+        <constant name="EcalEndcap_rmin" value="210.0"/>
+        <constant name="EcalEndcap_rmax" value="(EcalBarrel_rmin - 15.0) / (cos(pi/CaloSides))"/> <!-- Correction from going from inner circle to outer circle -->
+        <constant name="EcalEndcap_zmin" value="1657.0"/>
+
+        <constant name="HcalBarrel_rmin" value="1419.0"/>
+        <constant name="HcalBarrel_layers" value="(int) 75"/>
+        <constant name="HcalBarrel_layer_thickness" value="10.0 + 6.5"/>
+        <constant name="HcalEndcap_zmin" value="EcalBarrel_zmax + 40.0"/> <!-- Gap for cables -->
+        <constant name="HcalEndcap_rmin" value="500.0"/>
+        <constant name="HcalEndcap_rmax" value="(HcalBarrel_rmin + HcalBarrel_layers * HcalBarrel_layer_thickness) / (cos(pi/CaloSides))"/> <!-- Correction from going from inner circle to outer circle -->
+        <constant name="HcalEndcap_layers" value="60"/>
+        <constant name="HcalEndcap_layer_thickness" value="20.0 + 6.5"/>
+        <constant name="HcalEndcap_zmax" value="HcalEndcap_zmin + HcalEndcap_layers * HcalEndcap_layer_thickness"/>
+
+        <constant name="VertexBarrel_zmax" value="100.0"/>
+        <constant name="VertexBarrel_r1" value="27.0"/>
+        <constant name="VertexBarrel_r2" value="38.0"/>
+        <constant name="VertexBarrel_r3" value="51.0"/>
+        <constant name="VertexBarrel_r4" value="64.0"/>
+        <constant name="VertexBarrel_r5" value="77.0"/>
     </define>
     <materials>
-        <material name="TungstenDens23">
-            <D value="17.7" unit="g/cm3"/>
-            <fraction n="0.925" ref="W"/>
-            <fraction n="0.066" ref="Ni"/>
-            <fraction n="0.009" ref="Fe"/>
-        </material>
         <material name="TungstenDens24">
             <D value="17.8" unit="g/cm3"/>
             <fraction n="0.93" ref="W"/>
             <fraction n="0.061" ref="Ni"/>
             <fraction n="0.009" ref="Fe"/>
-        </material>
-        <material name="TungstenDens25">
-            <D value="18.2" unit="g/cm3"/>
-            <fraction n="0.950" ref="W"/>
-            <fraction n="0.044" ref="Ni"/>
-            <fraction n="0.006" ref="Fe"/>
-        </material>
-        <material name="CarbonFiber_25percent">
-            <D type="density" value="0.375" unit="g/cm3"/>
-            <fraction n="1.0" ref="CarbonFiber"/>
-        </material>
-        <material name="CarbonFiber_15percent">
-            <D type="density" value="0.225" unit="g/cm3"/>
-            <fraction n="1.0" ref="CarbonFiber"/>
-        </material>
-        <material name="Rohacell31_50percent">
-            <D type="density" value="0.016" unit="g/cm3"/>
-            <fraction n="1.0" ref="Rohacell31"/>
-        </material>
-        <material name="Rohacell31_15percent">
-            <D type="density" value="0.0048" unit="g/cm3"/>
-            <fraction n="1.0" ref="Rohacell31"/>
-        </material>
-        <material name="BoratedPolyethylene5">
-            <D value="0.93" unit="g/cm3"/>
-            <fraction n="0.612" ref="C"/>
-            <fraction n="0.222" ref="O"/>
-            <fraction n="0.116" ref="H"/>
-            <fraction n="0.050" ref="B"/>
-        </material>
-        <material name="SiliconCarbide">
-            <D value="3.1" unit="g/cm3"/>
-            <composite n="1" ref="Si"/>
-            <composite n="1" ref="C"/>
-        </material> 
-        <material name="SiliconCarbide_6percent">
-            <D value="0.186" unit="g/cm3"/>
-            <fraction n="1.0" ref="SiliconCarbide"/>
-        </material>
-        <material name="Graphite">
-        	<D value="1.7" unit="g/cm3"/>
-        	<composite n="1" ref="C"/>
-        </material>      
+        </material>    
     </materials>
 
     <limits>
@@ -80,40 +56,148 @@
     </limits>
 
     <detectors>
+        <comment>Trackers</comment> 
+        <detector id="1" name="SiVertexBarrel" type="SiTrackerBarrel" readout="SiVertexBarrelHits" insideTrackingVolume="true">
+            <comment>Vertex Detector Barrel</comment>
+            <module name="VtxBarrelModuleInner" vis="SiVertexBarrelModuleVis">
+                <module_envelope width="10.0" length="(VertexBarrel_zmax - 1) * 2" thickness="0.6"/>
+                <module_component width="7.8" length="(VertexBarrel_zmax - 1.5) * 2" thickness="0.130" material="Carbon" sensitive="false">
+                    <position z="-0.12"/>
+                </module_component>
+                <module_component width="9.8" length="(VertexBarrel_zmax - 1.5) * 2" thickness="0.05" material="Silicon" sensitive="true">
+                    <position z="0.225"/>
+                </module_component>
+            </module>
+            <module name="VtxBarrelModuleOuter" vis="SiVertexBarrelModuleVis">
+                <module_envelope width="14.0" length="(VertexBarrel_zmax - 1) * 2" thickness="0.6"/>
+                <module_component width="11.6" length="(VertexBarrel_zmax - 1.5) * 2" thickness="0.130" material="Carbon" sensitive="false">
+                    <position z="-0.12"/>
+                </module_component>
+                <module_component width="13.8" length="(VertexBarrel_zmax - 1.5) * 2" thickness="0.05" material="Silicon" sensitive="true">
+                    <position z="0.210"/>
+                </module_component>
+            </module>
+            <layer module="VtxBarrelModuleInner" id="1" vis="SiVertexBarrelLayerVis">
+                <barrel_envelope inner_r="VertexBarrel_r1 - 2" outer_r="VertexBarrel_r1 + 2" z_length="VertexBarrel_zmax * 2"/>
+                <rphi_layout phi_tilt="0.0" nphi="18" phi0="0.2618" rc="VertexBarrel_r1" dr="-1.15"/>
+                <z_layout dr="0.0" z0="0.0" nz="1"/>
+            </layer>
+            <layer module="VtxBarrelModuleOuter" id="2" vis="SiVertexBarrelLayerVis">
+                <barrel_envelope inner_r="VertexBarrel_r2 - 2" outer_r="VertexBarrel_r2 + 2" z_length="VertexBarrel_zmax * 2"/>
+                <rphi_layout phi_tilt="0.0" nphi="18" phi0="0.2618" rc="VertexBarrel_r2" dr="-1.13"/>
+                <z_layout dr="0.0" z0="0.0" nz="1"/>
+            </layer>
+            <layer module="VtxBarrelModuleOuter" id="3" vis="SiVertexBarrelLayerVis">
+                <barrel_envelope inner_r="VertexBarrel_r3 - 2" outer_r="VertexBarrel_r3 + 2" z_length="VertexBarrel_zmax * 2"/>
+                <rphi_layout phi_tilt="0.0" nphi="24" phi0="0.0" rc="VertexBarrel_r3" dr="-0.89"/>
+                <z_layout dr="0.0" z0="0.0" nz="1"/>
+            </layer>
+            <layer module="VtxBarrelModuleOuter" id="4" vis="SiVertexBarrelLayerVis">
+                <barrel_envelope inner_r="VertexBarrel_r4 - 2" outer_r="VertexBarrel_r4 + 2" z_length="VertexBarrel_zmax * 2"/>
+                <rphi_layout phi_tilt="0.0" nphi="30" phi0="0.1309" rc="VertexBarrel_r4" dr="0.81"/>
+                <z_layout dr="0.0" z0="0.0" nz="1"/>
+            </layer>
+            <layer module="VtxBarrelModuleOuter" id="5" vis="SiVertexBarrelLayerVis">
+                <barrel_envelope inner_r="VertexBarrel_r5 - 2" outer_r="VertexBarrel_r5 + 2" z_length="VertexBarrel_zmax * 2"/>
+                <rphi_layout phi_tilt="0.0" nphi="36" phi0="0.0" rc="VertexBarrel_r5" dr="0.77"/>
+                <z_layout dr="0.0" z0="0.0" nz="1"/>
+            </layer>
+        </detector>
+        
         <comment>Calorimeters</comment>
-        <detector id="5" name="EcalBarrel" type="PolyhedraBarrelCalorimeter2" readout="EcalBarrelHits" calorimeterType="EM_BARREL" gap="0.">
+        <detector id="5" name="EcalBarrel" type="EcalBarrel" readout="EcalBarrelHits" vis="EcalBarrelVis" calorimeterType="EM_BARREL" gap="0.0">
             <comment>EM Calorimeter Barrel</comment>
-            <dimensions numsides="12" rmin="500." z="500." />
-            <staves />
+            <dimensions numsides="(int) CaloSides" rmin="EcalBarrel_rmin" z="EcalBarrel_zmax*2" />
+            <staves vis="EcalBarrelStaveVis"/>
             <layer repeat="1">
-                <slice material = "Silicon" thickness = "0.032*cm" sensitive = "yes" limits="cal_limits" />
-                <slice material = "Copper"  thickness = "0.005*cm" />
-                <slice material = "Kapton"  thickness = "0.030*cm" />
-                <slice material = "Air"     thickness = "0.033*cm" />
+                <slice material = "Silicon" thickness = "0.32" sensitive = "yes" limits="cal_limits" />
+                <slice material = "Copper"  thickness = "0.05" />
+                <slice material = "Kapton"  thickness = "0.30" />
+                <slice material = "Air"     thickness = "0.33" />
             </layer>      
             <layer repeat="20">
-                <slice material = "TungstenDens24" thickness = "0.25*cm" />
-                <slice material = "Air"     thickness = "0.025*cm" />
-                <slice material = "Silicon" thickness = "0.032*cm" sensitive = "yes" limits="cal_limits" />
-                <slice material = "Copper"  thickness = "0.005*cm" />
-                <slice material = "Kapton"  thickness = "0.030*cm" />
-                <slice material = "Air"     thickness = "0.033*cm" />
+                <slice material = "TungstenDens24" thickness = "2.5" />
+                <slice material = "Air"     thickness = "0.25" />
+                <slice material = "Silicon" thickness = "0.32" sensitive = "yes" limits="cal_limits" />
+                <slice material = "Copper"  thickness = "0.05" />
+                <slice material = "Kapton"  thickness = "0.30" />
+                <slice material = "Air"     thickness = "0.33" />
             </layer>
             <layer repeat="10">
-                <slice material = "TungstenDens24" thickness = "0.5*cm" />
-                <slice material = "Air"     thickness = "0.025*cm" />
-                <slice material = "Silicon" thickness = "0.032*cm" sensitive = "yes" limits="cal_limits" />
-                <slice material = "Copper"  thickness = "0.005*cm" />
-                <slice material = "Kapton"  thickness = "0.030*cm" />
-                <slice material = "Air"     thickness = "0.033*cm" />
+                <slice material = "TungstenDens24" thickness = "5" />
+                <slice material = "Air"     thickness = "0.25" />
+                <slice material = "Silicon" thickness = "0.32" sensitive = "yes" limits="cal_limits" />
+                <slice material = "Copper"  thickness = "0.05" />
+                <slice material = "Kapton"  thickness = "0.30" />
+                <slice material = "Air"     thickness = "0.33" />
+            </layer>
+        </detector>
+        <detector id="6" name="EcalEndcap" type="PolyhedraEndcapCalorimeter2" reflect="true" readout="EcalEndcapHits" vis="EcalEndcapVis" calorimeterType="EM_ENDCAP">
+            <comment>EM Calorimeter Endcaps</comment>
+            <dimensions numsides="(int) CaloSides" zmin="EcalEndcap_zmin" rmin="EcalEndcap_rmin" rmax="EcalEndcap_rmax" />
+            <layer repeat="1">
+                <slice material = "Silicon" thickness = "0.32" sensitive = "yes" limits="cal_limits" />
+                <slice material = "Copper"  thickness = "0.05" />
+                <slice material = "Kapton"  thickness = "0.30" />
+                <slice material = "Air"     thickness = "0.33" />
+            </layer>       
+            <layer repeat="20">
+                <slice material = "TungstenDens24" thickness = "2.5" />
+                <slice material = "Air"     thickness = "0.25" />
+                <slice material = "Silicon" thickness = "0.32" sensitive = "yes" limits="cal_limits" />
+                <slice material = "Copper"  thickness = "0.05" />
+                <slice material = "Kapton"  thickness = "0.30" />
+                <slice material = "Air"     thickness = "0.33" />
+            </layer>
+            <layer repeat="10">
+                <slice material = "TungstenDens24" thickness = "5" />
+                <slice material = "Air"     thickness = "0.25" />
+                <slice material = "Silicon" thickness = "0.32" sensitive = "yes" limits="cal_limits" />
+                <slice material = "Copper"  thickness = "0.05" />
+                <slice material = "Kapton"  thickness = "0.30" />
+                <slice material = "Air"     thickness = "0.33" />
+            </layer>
+        </detector>
+        <detector id="7" name="HcalBarrel" type="PolyhedraBarrelCalorimeter2" readout="HcalBarrelHits" vis="HcalBarrelVis" calorimeterType="HAD_BARREL" gap="0.0" material="Steel235">
+            <comment>Hadron Calorimeter Barrel</comment>
+            <dimensions numsides="(int) CaloSides" rmin="HcalBarrel_rmin" z="EcalBarrel_zmax*2"/>
+            <staves vis="HcalBarrelStavesVis"/>
+            <layer repeat="(int) HcalBarrel_layers">
+                <slice material = "TungstenDens24" thickness = "10.0" />
+                <slice material = "Polystyrene" thickness = "5.0" sensitive = "yes" limits="cal_limits" vis="HcalBarrelSensorVis"/>       
+                <slice material = "Air" thickness = "1.5" />
+            </layer>
+        </detector>
+        <detector id="8" name="HcalEndcap" type="PolyhedraEndcapCalorimeter2" readout="HcalEndcapHits" vis="HcalEndcapVis" calorimeterType="HAD_ENDCAP">
+            <comment>Hadron Calorimeter Endcaps</comment>
+            <dimensions numsides="(int) CaloSides" zmin="HcalEndcap_zmin" rmin="HcalEndcap_rmin" rmax="HcalEndcap_rmax" />
+            <layer repeat="(int) HcalEndcap_layers">
+                <slice material = "Steel235" thickness = "20.0" />
+                <slice material = "Polystyrene" thickness = "5.0" sensitive = "yes" limits="cal_limits" />        
+                <slice material = "Air" thickness = "1.5" />
             </layer>
         </detector>
     </detectors>
 
     <readouts>
+        <readout name="SiVertexBarrelHits">
+            <id>system:6,barrel:3,layer:4,module:12,sensor:1,side:32:-2,strip:24</id>
+        </readout>
         <readout name="EcalBarrelHits">
             <segmentation type="CartesianGridXY" gridSizeX="3.5" gridSizeY="3.5" />
             <id>system:6,barrel:3,module:4,layer:6,slice:5,x:32:-16,y:-16</id>
-        </readout>        
+        </readout>
+        <readout name="EcalEndcapHits">
+            <segmentation type="CartesianGridXY" gridSizeX="3.5" gridSizeY="3.5" />
+            <id>system:6,barrel:3,module:4,layer:6,slice:5,x:32:-16,y:-16</id>
+        </readout>
+        <readout name="HcalBarrelHits">
+            <segmentation type="RegularNgonCartesianGridXY" gridSizeX="3.0*cm" gridSizeY="3.0*cm" />
+            <id>system:6,barrel:3,module:4,layer:8,slice:5,x:32:-16,y:-16</id>
+        </readout>
+        <readout name="HcalEndcapHits">
+            <segmentation type="GlobalGridXY" gridSizeX="3.0*cm" gridSizeY="3.0*cm" />
+            <id>system:6,barrel:3,module:4,layer:8,slice:5,x:32:-16,y:-16</id>
+        </readout>
     </readouts>
 </lccdd>

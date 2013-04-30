@@ -13,20 +13,15 @@
 namespace DD4hep {
 
 namespace Geometry {
-struct BarrelDetector: virtual public DetElement {
+class BarrelDetector: virtual public DetElement {
 
-	BarrelDetector() {};
+public:
 	BarrelDetector(const DetElement& e) : DetElement(e) {};
 	virtual ~BarrelDetector() {}
 
-	virtual bool isBarrel() const {
+	bool isBarrel() const {
 		return true;
 	}
-
-	virtual double getRMin() const = 0;
-	virtual double getRMax() const = 0;
-	virtual double getZMin() const = 0;
-	virtual double getZMax() const = 0;
 };
 
 } /* namespace Geometry */

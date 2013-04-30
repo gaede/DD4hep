@@ -15,7 +15,9 @@ namespace DD4hep {
 
 namespace Geometry {
 
-struct Calorimeter: public LayeredSubdetector {
+class Calorimeter: public LayeredSubdetector {
+
+public:
 	Calorimeter(const DetElement& e) : DetElement(e), LayeredSubdetector(e) {}
 	virtual ~Calorimeter() {}
 

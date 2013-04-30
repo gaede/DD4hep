@@ -8,9 +8,7 @@
 //====================================================================
 #include "DD4hep/DetFactoryHelper.h"
 #include "XML/Layering.h"
-
-#include "LayeredSubdetector.h"
-#include "Calorimeter.h"
+#include "LayerStack.h"
 
 using namespace std;
 using namespace DD4hep;
@@ -164,7 +162,8 @@ static Ref_t create_detector(LCDD& lcdd, xml_h e, SensitiveDetector sens) {
 	env_phv.addPhysVolID("system", sdet.id());
 	env_phv.addPhysVolID("barrel", 0);
 	sdet.setPlacement(env_phv);
-	Geometry::LayerStack* layerStack = sdet.addExtension<Geometry::LayerStack>(new Geometry::LayerStack(stave));
+
+	sdet.addExtension<DD4hep::Geometry::LayerStack>(new PolyhedralCalorimeterLayerStack(sdet));
 	return sdet;
 }
 

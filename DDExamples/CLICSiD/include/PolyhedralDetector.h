@@ -12,17 +12,30 @@
 
 namespace DD4hep {
 namespace Geometry {
-struct PolyhedralDetector : virtual public DetElement {
+class PolyhedralDetector : virtual public DetElement {
+public:
 	PolyhedralDetector(const DetElement& e) : DetElement(e) {}
 	virtual ~PolyhedralDetector() {}
 
 	int getNSides() const {
 		return getPolyhedra()->GetNedges();
 	}
+	double getRMin() const {
+		return getPolyhedra()->GetRmin(0);
+	}
+	double getRMax() const {
+		return getPolyhedra()->GetRmax(0);
+	}
+	double getZMin() const {
+		return getPolyhedra()->GetZ(0);
+	}
+	double getZMax() const {
+		return getPolyhedra()->GetZ(1);
+	}
+
 protected:
 	PolyhedraRegular getPolyhedra() const {
-		PolyhedraRegular polyhedra(volume().solid());
-		return polyhedra;
+		return PolyhedraRegular(volume().solid());
 	}
 };
 } /* namespace Geometry */

@@ -14,27 +14,39 @@ using namespace std;
 using namespace DD4hep;
 using namespace Geometry;
 
-int main(int argc,char** argv)  {
+void printCalorimeterInformation(const DetElement& det) {
+	std::string delimiter = "-------------------------------------\n";
+
+	cout << "Detector name: " << det.name() << ", type: " << det.type() << endl;
+	PolyhedralCalorimeter calorimeter(det);
+	cout << delimiter << "Layer interface:" << endl;
+	cout << "\tNumber of layers: " << calorimeter.getNumberOfLayers() << endl;
+	cout << "\tTotal thickness: " << calorimeter.getTotalThickness() << " cm" << endl;
+	cout << "\tTotal interaction lengths: " << calorimeter.getTotalInteractionLengths() << " Lambda_int" << endl;
+	cout << "\tTotal radiation lengths: " << calorimeter.getTotalRadiationLengths() << " X_0" << endl;
+	for (int layerIndex = 0; layerIndex != calorimeter.getNumberOfLayers(); layerIndex++) {
+		cout << "\t\tLayer " << layerIndex << ": d = " << calorimeter.getLayerThickness(layerIndex)
+				<< " cm , Lambda/Lambda_int = " << calorimeter.getInteractionLengths(layerIndex) << ", X/X_0 = "
+				<< calorimeter.getRadiationLengths(layerIndex) << ", Sensors: "
+				<< calorimeter.getNumberOfSensors(layerIndex) << endl;
+	}
+
+	cout << delimiter << "Polyhedra interface:" << endl;
+	cout << "\tInner radius: " << calorimeter.getRMin() << " cm" << endl;
+	cout << "\tOuter radius: " << calorimeter.getRMax() << " cm" << endl;
+	cout << "\tMinimum z: " << calorimeter.getZMin() << " cm" << endl;
+	cout << "\tMaximum z: " << calorimeter.getZMax() << " cm" << endl;
+	cout << "\tNumber of sides: " << calorimeter.getNSides() << endl;
+
+	cout << delimiter << endl;
+}
+
+int main(int argc, char** argv) {
 
 	LCDD& lcdd = LCDD::getInstance();
 	lcdd.fromCompact(argv[1]);
+	printCalorimeterInformation(lcdd.detector("EcalBarrel"));
+	printCalorimeterInformation(lcdd.detector("HcalBarrel"));
 
-	PolyhedralBarrelCalorimeter calorimeter = lcdd.detector("EcalBarrel");
-	std::string delimiter = "-------------------------------------\n";
-
-	cout << delimiter << "Calorimeter interface:" << endl;
-	cout << "\tNumber of layers: " << calorimeter.getNumberOfLayers() << endl;
-	cout << "\tTotal thickness: " << calorimeter.getTotalThickness() << endl;
-	cout << "\tTotal radiation lengths: " << calorimeter.getTotalRadiationLengths() << endl;
-	cout << "\tTotal interaction lengths: " << calorimeter.getTotalInteractionLengths() << endl;
-
-	cout << delimiter << "Barrel interface:" << endl;
-	cout << "\tInner radius: " << calorimeter.getRMin() << " mm" << endl;
-	cout << "\tOuter radius: " << calorimeter.getRMax() << " mm" << endl;
-	cout << "\tMinimum z: " << calorimeter.getZMin() << " mm" << endl;
-	cout << "\tMaximum z: " << calorimeter.getZMax() << " mm" << endl;
-
-	cout << delimiter << "Polyhedra interface:" << endl;
-	cout << "\tNumber of sides: " << calorimeter.getNSides() << endl;
 	return 0;
 }

@@ -8,105 +8,71 @@
 #ifndef LAYEREDSUBDETECTOR_H_
 #define LAYEREDSUBDETECTOR_H_
 
-#include "DD4hep/Detector.h"
-#include "DD4hep/Shapes.h"
-#include "Exceptions.h"
+#include "LayerStack.h"
 
-#include <map>
-#include <sstream>
-#include <vector>
+#include "DD4hep/Detector.h"
 
 namespace DD4hep {
 namespace Geometry {
 
-class LayerStack {
+class LayeredSubdetector: virtual public DetElement {
 public:
-	LayerStack(const DetElement& det) : _layerStack(det) {}
-	LayerStack(const LayerStack&, const DetElement& det) : _layerStack(det) {}
-	~LayerStack() {}
+	LayeredSubdetector(const DetElement& e);
+	virtual ~LayeredSubdetector();
 
-	int getNumberOfLayers() const;
-	const DetElement& getLayer(int layerIndex) const;
-	double getLayerThickness(int layerIndex) const;
-	double getTotalThickness() const;
-	double getInteractionLengths(int layerIndex) const;
-	double getTotalInteractionLengths() const;
-	double getRadiationLengths(int layerIndex) const;
-	double getTotalRadiationLengths() const;
-
-protected:
-	DetElement _layerStack;
-
-	static double getThickness(const DetElement& det);
-	static double getInteractionLengths(const DetElement& det);
-	static double getRadiationLengths(const DetElement& det);
-};
-
-struct LayeredSubdetector: virtual public DetElement {
-	LayeredSubdetector(const DetElement& e) :
-			DetElement(e), _layerStack(0) {
-		getExtension();
-	}
-	virtual ~LayeredSubdetector() {
-	}
-
-	bool isLayered() const {
+	inline bool isLayered() const {
 		return true;
 	}
 
-	int getNumberOfLayers() const {
-		return _layerStack->getNumberOfLayers();
+	inline int getNumberOfLayers() const {
+		return layerStack->getNumberOfLayers();
 	}
 
-	const DetElement& getLayer(int layerIndex) const {
-		return _layerStack->getLayer(layerIndex);
+	inline int getNumberOfSensors(int layerIndex, int moduleIndex = 0) const {
+		return layerStack->getNumberOfSensors(layerIndex, moduleIndex);
 	}
 
-	double getLayerThickness(int layerIndex) const {
-		return _layerStack->getLayerThickness(layerIndex);
+	inline DetElement getSensor(int layerIndex, int moduleIndex = 0, int sensorIndex = 0) const {
+		return layerStack->getSensor(layerIndex, moduleIndex, sensorIndex);
 	}
 
-	double getSensorThickness(int layerIndex) const {
+	inline double getLayerThickness(int layerIndex, int moduleIndex = 0) const {
+		return layerStack->getThickness(layerIndex, moduleIndex);
+	}
+
+	inline double getInteractionLengths(int layerIndex, int moduleIndex = 0) const {
+		return layerStack->getInteractionLengths(layerIndex, moduleIndex);
+	}
+
+	inline double getRadiationLengths(int layerIndex, int moduleIndex = 0) const {
+		return layerStack->getRadiationLengths(layerIndex, moduleIndex);
+	}
+
+	inline double getMipEnergyLoss(int layerIndex, int moduleIndex = 0) const {
 		return 0.;
 	}
 
-	double getInteractionLengths(int layerIndex) const {
-		return _layerStack->getInteractionLengths(layerIndex);
+	inline double getTotalThickness(int moduleIndex = 0) const {
+		return layerStack->getTotalThickness(moduleIndex);
 	}
 
-	double getRadiationLengths(int layerIndex) const {
-		return _layerStack->getRadiationLengths(layerIndex);
+	inline double getTotalInteractionLengths(int moduleIndex = 0) const {
+		return layerStack->getTotalInteractionLengths(moduleIndex);
 	}
 
-	double getMipEnergyLoss(int layerIndex) const {
-		return 0.;
+	inline double getTotalRadiationLengths(int moduleIndex = 0) const {
+		return layerStack->getTotalRadiationLengths(moduleIndex);
 	}
 
-	double getTotalThickness() const {
-		return _layerStack->getTotalThickness();
-	}
-
-	double getTotalInteractionLengths() const {
-		return _layerStack->getTotalInteractionLengths();
-	}
-
-	double getTotalRadiationLengths() const {
-		return _layerStack->getTotalRadiationLengths();
-	}
+protected:
+	LayerStack* layerStack;
 
 private:
-	LayerStack* _layerStack;
-	void getExtension() {
-		std::cout << "Getting the extension" << std::endl;
+	void getExtension();
 
-		_layerStack = isValid() ? extension<LayerStack>() : 0;
-		if (_layerStack == 0) {
-			std::cout << "Failed to get the extension" << std::endl;
-		}
-	}
 };
 
-}
+} /* namespace Geometry */
 } /* namespace DD4hep */
 
 #endif /* LAYEREDSUBDETECTOR_H_ */
