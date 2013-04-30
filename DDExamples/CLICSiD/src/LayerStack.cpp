@@ -48,10 +48,6 @@ double LayerStack::getRadiationLengths(int layerIndex, int moduleIndex) const {
 double LayerStack::getInteractionLengths(int layerIndex, int moduleIndex) const {
 	double interactionLengths = 0.;
 	for (int sliceIndex = 0; sliceIndex < getNumberOfSlices(layerIndex, moduleIndex); sliceIndex++) {
-		DetElement slice = getSlice(layerIndex, moduleIndex, sliceIndex);
-		Box box = slice.volume().solid();
-		Material material = slice.volume().material();
-		std::cout << slice.name() << ", " << box->GetDZ() << ", " << material.name() << ", " << material.intLength() << ", " << material.radLength() << std::endl;
 		interactionLengths += Box(getSlice(layerIndex, moduleIndex, sliceIndex).volume().solid())->GetDZ() / getSlice(layerIndex, moduleIndex).volume().material().intLength();
 	}
 	return interactionLengths;
