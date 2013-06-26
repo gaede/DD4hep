@@ -7,13 +7,18 @@
 //
 //====================================================================
 
-#ifndef DD4hep_ELEMENTS_H
-#define DD4hep_ELEMENTS_H
+#ifndef DD4HEP_ELEMENTS_H
+#define DD4HEP_ELEMENTS_H
+#include "DD4hep/config.h"
 
 #include <string>
 #include <typeinfo>
 #include <stdexcept>
 #include <TNamed.h>
+
+#ifdef DD4HEP_INSTANCE_COUNTS
+#include "DD4hep/InstanceCount.h"
+#endif
 
 class TObject;
 class TObjArray;
@@ -95,25 +100,56 @@ namespace DD4hep {
       { return left * _toDouble(right); }
     
     void _toDictionary(const std::string& name, const std::string& value);
+
+    long num_object_validations();
+    void increment_object_validations();
+    std::string typeName(const std::type_info& type);
     
-    template<typename T> inline void deletePtr(T*& p) { if(p) delete p; p=0; }
+    inline unsigned long magic_word() { return 0xFEEDAFFEDEADFACEL; }
     
     /** @class Value Handle.h
      *  
      *  @author  M.Frank
      *  @version 1.0
      */
-    template <typename Q, typename P> struct Value : public Q, public P  {
+    struct Counted  {
+      /// Standard constructor
+      Counted();
+      /// Standard destructor
+      virtual ~Counted();
+    };
+
+    /** @class Value Handle.h
+     *  
+     *  Class to simply combine to object types to one
+     *
+     *  @author  M.Frank
+     *  @version 1.0
+     */
+    template <typename Q, typename P> struct Value : public Q, public P
+#ifdef DD4HEP_INSTANCE_COUNTS
+      , public Counted
+#endif
+    {
       typedef  Q first_base;
       typedef  P second_base;
-      virtual ~Value() {}
+      /// Standard constructor
+      Value();
+      /// Standard destructor
+      virtual ~Value();
     };
-    
-    long num_object_validations();
-    void increment_object_validations();
-    
-    static unsigned long magic_word() { return 0xFEEDAFFEDEADFACEL; }
-    
+
+    template <typename Q, typename P> inline Value<Q,P>::Value()  {
+#ifdef DD4HEP_INSTANCE_COUNTS
+      InstanceCount::increment(this); 
+#endif
+    }
+    template <typename Q, typename P> inline Value<Q,P>::~Value()  {
+#ifdef DD4HEP_INSTANCE_COUNTS
+      InstanceCount::decrement(this); 
+#endif
+    }
+
     /** @class Handle Handle.h
      *  
      *  @author  M.Frank
@@ -123,22 +159,24 @@ namespace DD4hep {
       typedef T Implementation;
       typedef Handle<Implementation> handle_t;
       T* m_element;
-      Handle() : m_element(0)                 {                                 }
-      Handle(T* e) : m_element(e)             {                                 }
-      Handle(const Handle<T>& e) : m_element(e.m_element) {                     }
+      Handle() : m_element(0)                 {                                      }
+      Handle(T* e) : m_element(e)             {                                      }
+      Handle(const Handle<T>& e) : m_element(e.m_element) {                          }
       template<typename Q> Handle(Q* e)
-      : m_element((T*)e)                      {  verifyObject();                }
+      : m_element((T*)e)                      {  verifyObject();                     }
       template<typename Q> Handle(const Handle<Q>& e) 
-      : m_element((T*)e.m_element)            {  verifyObject();                }
-      
-      bool isValid() const                    {  return 0 != m_element;         }
-      bool operator!() const                  {  return 0 == m_element;         }
-      T* operator->() const                   {  return  m_element;             }
-      operator T& ()  const                   {  return *m_element;             }
-      T& operator*()  const                   {  return *m_element;             }
-      T* ptr() const                          {  return m_element;              }
-      template <typename Q> Q* _ptr() const   {  return (Q*)m_element;          }
-      template <typename Q> Q* data() const   {  return (Value<T,Q>*)m_element; }
+      : m_element((T*)e.m_element)            {  verifyObject();                     }
+      Handle<T>& operator=(const Handle<T>& e){ m_element=e.m_element; return *this; }
+      bool isValid() const                    {  return 0 != m_element;              }
+      bool operator!() const                  {  return 0 == m_element;              }
+      void clear()                            {  m_element = 0;                      }
+      T* operator->() const                   {  return  m_element;                  }
+      operator T& ()  const                   {  return *m_element;                  }
+      T& operator*()  const                   {  return *m_element;                  }
+      T* ptr() const                          {  return  m_element;                  }
+      template <typename Q> Q* _ptr() const   {  return  (Q*)m_element;              }
+      template <typename Q> Q*  data() const  {  return  (Q*)m_element;              }
+      template <typename Q> Q&  object() const{  return *(Q*)m_element;              }
       void verifyObject() const {
         increment_object_validations();
         if ( m_element && dynamic_cast<T*>(m_element) == 0 )  {
@@ -152,6 +190,45 @@ namespace DD4hep {
     typedef Handle<>       Elt_t;
     typedef Handle<TNamed> Ref_t;
     
+    /// Helper to delete objects from heap and reset the pointer
+    template <typename T> inline void deletePtr(T*& p) {
+      if(p) delete p;
+      p = 0;
+    }
+    /// Helper to delete objects from heap and reset the pointer
+    template <typename T> inline void destroyObject(T*& p) {
+      deletePtr(p);
+    }
+    /// Helper to delete objects from heap and reset the handle
+    template <typename T> inline void destroyHandle(T& h)   {
+      deletePtr(h.m_element);
+    }
+    /// Functor to delete objects from heap and reset the pointer
+    template <typename T> struct DestroyObject {
+      void operator()(T& p) const { 
+	destroyObject(p);
+      }
+    };
+    /// Functor to destroy handles and delete the cached object
+    template <typename T=Ref_t> struct DestroyHandle {
+      void operator()(T p) const {
+	destroyHandle(p);
+      }
+    };
+    /// map Functor to delete objects from heap
+    template <typename K=std::string,typename T=Ref_t> struct DestroyObjects {
+      void operator()(std::pair<K,T> p) const {
+	DestroyObject<T>()(p.second); 
+      }
+    };
+    /// map Functor to destroy handles and delete the cached object
+    template <typename K=std::string, typename T=Ref_t> struct DestroyHandles {
+      void operator()(std::pair<K,T> p) const {
+	DestroyHandle<T>()(p.second);
+      }
+    };
+    
+
   }       /* End namespace Geometry  */
-}         /* End namespace DD4hep   */
-#endif    /* DD4hep_ELEMENTS_H      */
+}         /* End namespace DD4hep    */
+#endif    /* DD4HEP_ELEMENTS_H       */

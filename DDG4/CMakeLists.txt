@@ -1,10 +1,13 @@
 #---Find Geant4-------------------------------------------------------------------
-find_package(Geant4 REQUIRED)
-if(NOT Geant4_clhep_FOUND)
-  find_package(CLHEP REQUIRED)
-  set(Geant4_INCLUDE_DIRS ${Geant4_INCLUDE_DIRS} ${CLHEP_INCLUDE_DIRS})
-  set(Geant4_LIBRARIES ${Geant4_LIBRARIES} ${CLHEP_LIBRARIES})
-endif()
+
+find_package(Geant4 REQUIRED gdml ui_all vis_all)
+#if(NOT Geant4_clhep_FOUND)
+#  find_package(CLHEP REQUIRED)
+#  set(Geant4_INCLUDE_DIRS ${Geant4_INCLUDE_DIRS} ${CLHEP_INCLUDE_DIRS})
+#  set(Geant4_LIBRARIES ${Geant4_LIBRARIES} ${CLHEP_LIBRARIES})
+#endif()
+INCLUDE(${Geant4_USE_FILE})   # this also takes care of geant 4 definitions and include dirs
+
 
 include(DD4hep_XML_setup)
 
@@ -22,4 +25,24 @@ if(NOT DD4HEP_USE_XERCESC)
 endif()
 add_library(DD4hepG4 SHARED ${sources})
 target_link_libraries(DD4hepG4 DD4hepCore ${ROOT_LIBRARIES} Reflex ${Geant4_LIBRARIES})
+
+SET_TARGET_PROPERTIES( DD4hepG4 PROPERTIES VERSION ${DD4hep_VERSION} SOVERSION ${DD4hep_SOVERSION})
+
+
 dd4hep_generate_rootmap(DD4hepG4)
+
+#-----------------------------------------------------------------------------------
+add_executable(g4gdmlDisplay g4gdmlDisplay.cpp)
+target_link_libraries(g4gdmlDisplay DD4hepG4 DD4hepCore)
+
+#--- install target-------------------------------------
+install(DIRECTORY include/DDG4
+  DESTINATION include
+  PATTERN ".svn" EXCLUDE )
+
+install(TARGETS DD4hepG4 g4gdmlDisplay
+  RUNTIME DESTINATION bin
+  LIBRARY DESTINATION lib
+  )
+# to do: add corresponding uninstall...
+#-------------------------------------------------------

@@ -6,7 +6,7 @@
 //  Author     : A.Muennich
 //
 //====================================================================
-
+#if 0
 #include "DD4hep/DetFactoryHelper.h"
 #include "DD4hep/Detector.h"
 #include "TPCData.h"
@@ -24,7 +24,7 @@ static Ref_t create_element(LCDD& lcdd, xml_h e, SensitiveDetector sens)  {
   string      name  = x_det.nameStr();
   Material    mat    (lcdd.material(x_det.materialStr()));
   //if data is needed do this  
-  Value<TNamed,TPCData>* tpcData = new Value<TNamed,TPCData>();
+  TPCData* tpcData = new TPCData();
   DetElement tpc(tpcData, name, x_det.typeStr());
   tpcData->id = x_det.id();
   //else do this
@@ -53,12 +53,16 @@ static Ref_t create_element(LCDD& lcdd, xml_h e, SensitiveDetector sens)  {
       {
       case 2:
 	tpcData->innerWall=part_det;
+	break;
       case 3:
 	tpcData->outerWall=part_det;
+	break;
       case 4:
 	tpcData->gasVolume=part_det;
+	break;
       case 5:
 	tpcData->cathode=part_det;
+	break;
       }
     //Endplate
     if(part_det.id()== 0){
@@ -90,10 +94,9 @@ static Ref_t create_element(LCDD& lcdd, xml_h e, SensitiveDetector sens)  {
 	  m_phv.addPhysVolID("module",modID);
 	  module.setPlacement(m_phv);
 	  //data for VersatileDiskRowLayout is added as user segmentataion	  
-	  module.setReadout(xml_pads);
 	  // Readout and placement must be present before adding extension,
 	  // since they are aquired internally for optimisation reasons. (MF)
-	  module.addExtension<PadLayout>(new VersatileDiskRowLayout(module));
+	  module.addExtension<PadLayout>(new VersatileDiskRowLayout(module,xml_pads));
 	}//modules
       }//module groups
     }//endplate
@@ -126,3 +129,4 @@ static Ref_t create_element(LCDD& lcdd, xml_h e, SensitiveDetector sens)  {
 
 //first argument is the type from the xml file
 DECLARE_DETELEMENT(LP1,create_element)
+#endif

@@ -25,14 +25,21 @@ namespace {
       "                                    device is stdout.                         \n"
       "        -ascii          [OPTIONAL]  Dump visualisation attrs in csv format.   \n"
       "                                    [Only valid for -compact2vis]             \n"
+      "        -destroy        [OPTIONAL]  Force destruction of the LCDD instance    \n"
+      "                                    before exiting the application            \n"
+      "        -volmgr         [OPTIONAL]  Load and populate phys.volume manager to  \n"
+      "                                    check the volume ids for duplicates etc.  \n"
 	 << endl;
     exit(EINVAL);
   }
 }
 
+
 //______________________________________________________________________________
 int main(int argc,char** argv)  {
   bool ascii = false;
+  bool volmgr = false;
+  bool destroy      = false;
   bool compact2lcdd = false;
   bool compact2gdml = false;
   bool compact2pand = false;
@@ -55,6 +62,10 @@ int main(int argc,char** argv)  {
         output = ++i;
       else if ( strncmp(argv[i],"-ascii",5)==0 )
         ascii = true;
+      else if ( strncmp(argv[i],"-destroy",2)==0 )
+        destroy = true;
+      else if ( strncmp(argv[i],"-volmgr",2)==0 )
+        volmgr = true;
       else
 	usage();
     }
@@ -68,6 +79,9 @@ int main(int argc,char** argv)  {
   LCDD& lcdd = dd4hep_instance();
   // Load compact files
   run_plugin(lcdd,"DD4hepCompactLoader",int(geo_files.size()),&geo_files[0]);
+  // Create volume manager and populate it required
+  if ( volmgr  ) run_plugin(lcdd,"DD4hepVolumeManager",0,0);
+  // Execute data converter.
   if ( compact2lcdd )
     run_plugin(lcdd,"DD4hepGeometry2LCDD",output,&argv[output]);
   else if ( compact2gdml )
@@ -78,5 +92,6 @@ int main(int argc,char** argv)  {
     run_plugin(lcdd,"DD4hepGeometry2VISASCII",output,&argv[output]);
   else if ( compact2vis )
     run_plugin(lcdd,"DD4hepGeometry2VIS",output,&argv[output]);
+  if ( destroy ) delete &lcdd;
   return 0;
 }

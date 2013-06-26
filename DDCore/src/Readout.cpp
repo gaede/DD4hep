@@ -8,21 +8,33 @@
 //====================================================================
 
 #include "DD4hep/Readout.h"
+#include "DD4hep/InstanceCount.h"
 
 using namespace std;
 using namespace DD4hep::Geometry;
 
+/// Standard constructor
+Readout::Object::Object()  {
+  InstanceCount::increment(this);
+}
+
+/// Default destructor
+Readout::Object::~Object()  {
+  destroyHandle(segmentation);
+  InstanceCount::decrement(this);
+}
+
 /// Initializing constructor to create a new object
 Readout::Readout(const string& nam)
 {
-  assign(new Value<TNamed,Object>(),nam,"readout");
+  assign(new Object(),nam,"readout");
 }
 
 /// Assign IDDescription to readout structure
 void Readout::setIDDescriptor(const Ref_t& new_descriptor)  const   {
   if ( isValid() )  {                    // Remember: segmentation is NOT owned by readout structure!
     if ( new_descriptor.isValid() )  {   // Do NOT delete!
-      _data().id = new_descriptor;
+      data<Object>()->id = new_descriptor;
       return;
     }
   }
@@ -31,13 +43,13 @@ void Readout::setIDDescriptor(const Ref_t& new_descriptor)  const   {
 
 /// Access IDDescription structure
 IDDescriptor Readout::idSpec() const   {
-  return _data().id;
+  return object<Object>().id;
 }
 
 /// Assign segmentation structure to readout
 void Readout::setSegmentation(const Segmentation& seg)   const  {
   if ( isValid() )  {
-    Object& ro = _data();
+    Object& ro = object<Object>();
     Segmentation::Implementation* e = ro.segmentation.ptr();
     if ( e )  { // Remember: segmentation is owned by readout structure!
       delete e; // Need to delete the segmentation object
@@ -52,17 +64,37 @@ void Readout::setSegmentation(const Segmentation& seg)   const  {
 
 /// Access segmentation structure
 Segmentation Readout::segmentation() const  {
-  return _data().segmentation;
+  return object<Object>().segmentation;
+}
+
+/// Standard constructor
+Alignment::Object::Object()  {
+  InstanceCount::increment(this);
+}
+
+/// Default destructor
+Alignment::Object::~Object()  {
+  InstanceCount::decrement(this);
 }
 
 /// Initializing constructor to create a new object
 Alignment::Alignment(const LCDD& /* lcdd */, const string& nam)
 {
-  assign(new Value<TNamed,Object>(),nam,"alignment");
+  assign(new Object(),nam,"alignment");
+}
+
+/// Standard constructor
+Conditions::Object::Object()  {
+  InstanceCount::increment(this);
+}
+
+/// Default destructor
+Conditions::Object::~Object()  {
+  InstanceCount::decrement(this);
 }
 
 /// Initializing constructor to create a new object
 Conditions::Conditions(const LCDD& /* lcdd */, const string& nam)
 {
-  assign(new Value<TNamed,Object>(),nam,"conditions");
+  assign(new Object(),nam,"conditions");
 }

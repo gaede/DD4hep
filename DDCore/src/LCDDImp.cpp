@@ -8,6 +8,7 @@
 //====================================================================
 
 #include "DD4hep/GeoHandler.h"
+#include "DD4hep/InstanceCount.h"
 #include "LCDDImp.h"
 
 // C/C++ include files
@@ -39,7 +40,7 @@ using namespace DD4hep;
 using namespace std;
 namespace {
   struct TopDetElement : public DetElement {
-    TopDetElement(const string& nam, Volume vol) : DetElement(nam,/* "structure", */0) { _data().volume = vol;    }
+    TopDetElement(const string& nam, Volume vol) : DetElement(nam,/* "structure", */0) { object<Object>().volume = vol;    }
   };
   struct TypePreserve {
     LCDDBuildType& m_t;
@@ -58,13 +59,17 @@ LCDDImp::LCDDImp()
   : m_world(), m_trackers(), m_worldVol(), m_trackingVol(), m_field("global"),
     m_buildType(BUILD_NONE)
 {
+  InstanceCount::increment(this);
   m_properties = new Properties();
-  //if ( 0 == gGeoManager )
+  if ( 0 == gGeoManager )
   {
     gGeoManager = new TGeoManager();
-    gGeoManager->AddNavigator();
-    gGeoManager->SetCurrentNavigator(0);
-    cout << "Navigator:" << (void*)gGeoManager->GetCurrentNavigator() << endl;
+  }
+  {
+    m_manager = gGeoManager;
+    m_manager->AddNavigator();
+    m_manager->SetCurrentNavigator(0);
+    //cout << "Navigator:" << (void*)m_manager->GetCurrentNavigator() << endl;
   }
   //if ( 0 == gGeoIdentity ) 
   {
@@ -83,8 +88,30 @@ LCDDImp::LCDDImp()
 
 /// Standard destructor
 LCDDImp::~LCDDImp() {
-  if ( m_properties ) delete m_properties;
-  m_properties = 0;
+  DestroyHandles<> del;
+  destroyHandle(m_world);
+  destroyHandle(m_field);
+  destroyHandle(m_header);
+  destroyHandle(m_volManager);
+  destroyObject(m_properties);
+  for_each(m_readouts.begin(),    m_readouts.end(),     del);
+  for_each(m_idDict.begin(),      m_idDict.end(),       del);
+  for_each(m_limits.begin(),      m_limits.end(),       del);
+  for_each(m_regions.begin(),     m_regions.end(),      del);
+  for_each(m_alignments.begin(),  m_alignments.end(),   del);
+  for_each(m_sensitive.begin(),   m_sensitive.end(),    del);
+  for_each(m_display.begin(),     m_display.end(),      del);
+  for_each(m_fields.begin(),      m_fields.end(),       del);
+  for_each(m_define.begin(),      m_define.end(),       del);
+
+  m_trackers.clear();
+  m_worldVol.clear();
+  m_trackingVol.clear();
+  m_invisibleVis.clear();
+  m_materialVacuum.clear();
+  m_materialAir.clear();
+  delete m_manager;
+  InstanceCount::decrement(this);
 }
 
 Volume LCDDImp::pickMotherVolume(const DetElement&) const  {     // throw if not existing
@@ -121,6 +148,15 @@ LCDD& LCDDImp::addField(const Ref_t& x) {
   return *this;
 }
 
+/// Retrieve a matrial by it's name from the detector description
+Material LCDDImp::material(const string& name)  const    {
+  TGeoMedium* mat = m_manager->GetMedium(name.c_str());
+  if ( mat )   {
+    return Material(Ref_t(mat));
+  }
+  throw runtime_error("Cannot find a material the reference name:"+name);
+}
+
 Handle<TObject> LCDDImp::getRefChild(const HandleMap& e, const string& name, bool do_throw)  const  {
   HandleMap::const_iterator i = e.find(name);
   if ( i != e.end() )  {
@@ -131,14 +167,18 @@ Handle<TObject> LCDDImp::getRefChild(const HandleMap& e, const string& name, boo
   }
   return 0;
 }
+
 namespace {
   struct ShapePatcher : public GeoScan {
-    ShapePatcher(DetElement e) : GeoScan(e) {}
-    GeoScan& operator()()  {
+    VolumeManager m_volManager;
+    DetElement    m_world;
+    ShapePatcher(VolumeManager m, DetElement e) : GeoScan(e), m_volManager(m), m_world(e) {}
+    void patchShapes()  {
       GeoHandler::Data& data = *m_data;
       string nam;
       cout << "++ Patching names of anonymous shapes...." << endl;
       for(GeoHandler::Data::const_reverse_iterator i=data.rbegin(); i != data.rend(); ++i)   {
+	int level = (*i).first;
         const GeoHandler::Data::mapped_type& v = (*i).second;
         for(GeoHandler::Data::mapped_type::const_iterator j=v.begin(); j != v.end(); ++j) {
           const TGeoNode* n = *j;
@@ -182,67 +222,75 @@ namespace {
           }
         }
       }
-      return *this;
     }
   };
+
 }
 
 void LCDDImp::endDocument()  {
-  TGeoManager* mgr = gGeoManager;
+  TGeoManager* mgr = m_manager;
   if ( !mgr->IsClosed() ) {
     LCDD& lcdd = *this;
-    Material  air = material("Air");
 
-    m_worldVol.setMaterial(air);
-    m_trackingVol.setMaterial(air);
-
+#if 0
     Region trackingRegion("TrackingRegion");
     trackingRegion.setThreshold(1);
     trackingRegion.setStoreSecondaries(true);
     add(trackingRegion);
     m_trackingVol.setRegion(trackingRegion);
-    
-    // Set the world volume to invisible.
-    VisAttr worldVis("WorldVis");
-    worldVis.setVisible(false);
-    m_worldVol.setVisAttributes(worldVis);
-    add(worldVis);
-  
     // Set the tracking volume to invisible.
     VisAttr trackingVis("TrackingVis");
     trackingVis.setVisible(false);               
     m_trackingVol.setVisAttributes(trackingVis);
     add(trackingVis); 
+#endif
+    // Set the world volume to invisible.
+    VisAttr worldVis("WorldVis");
+    worldVis.setAlpha(1.0);
+    worldVis.setVisible(false);
+    worldVis.setShowDaughters(true);
+    worldVis.setColor(1.0,1.0,1.0);
+    worldVis.setLineStyle(VisAttr::SOLID);
+    worldVis.setDrawingStyle(VisAttr::WIREFRAME);
+    m_worldVol.setVisAttributes(worldVis);
+    add(worldVis);
 
     /// Since we allow now for anonymous shapes,
     /// we will rename them to use the name of the volume they are assigned to
-    //gGeoManager->SetTopVolume(m_worldVol);
     mgr->CloseGeometry();
-    m_world.setPlacement(PlacedVolume(mgr->GetTopNode()));
-    ShapePatcher patcher(m_world);
-    patcher();
+    ShapePatcher patcher(m_volManager,m_world);
+    patcher.patchShapes();
   }
 }
 
 void LCDDImp::init()  {
   if ( !m_world.isValid() ) {
+    TGeoManager* mgr = m_manager;
     Box worldSolid("world_box","world_x","world_y","world_z");
     Material vacuum = material("Vacuum");
-    Volume world("world_volume",worldSolid,vacuum);
+    Material  air   = material("Air");
+    Volume   world("world_volume",worldSolid,air);
+
+    m_world          = TopDetElement("world",world);
+    m_worldVol       = world;
+
+#if 0
     Tube trackingSolid("tracking_cylinder",
 		       0.,
 		       _toDouble("tracking_region_radius"),
 		       _toDouble("2*tracking_region_zmax"),2*M_PI);
-    Volume tracking("tracking_volume",trackingSolid, vacuum);
-    m_world          = TopDetElement("world",world);
+    Volume tracking("tracking_volume",trackingSolid, air);
     m_trackers       = TopDetElement("tracking",tracking);
-    m_worldVol       = world;
     m_trackingVol    = tracking;
-    m_materialAir    = material("Air");
-    m_materialVacuum = material("Vacuum");
-    m_detectors.append(m_world);
+    PlacedVolume pv  = m_worldVol.placeVolume(tracking);
+    m_trackers.setPlacement(pv);
     m_world.add(m_trackers);
-    gGeoManager->SetTopVolume(m_worldVol);
+#endif
+    m_materialAir    = air;
+    m_materialVacuum = vacuum;
+    m_detectors.append(m_world);
+    m_manager->SetTopVolume(m_worldVol);
+    m_world.setPlacement(PlacedVolume(mgr->GetTopNode()));    
   }
 }
 
@@ -270,22 +318,20 @@ void LCDDImp::fromXML(const string& xmlfile, LCDDBuildType build_type) {
     }
   }
   catch(const XML::XmlException& e)  {
-    cout << "XML-DOM Exception:" << XML::_toString(e.msg) << endl;
-    throw runtime_error("XML-DOM Exception:\""+XML::_toString(e.msg)+"\" while parsing "+xmlfile);
+    throw runtime_error("XML-DOM Exception:\n\""+XML::_toString(e.msg)+
+			"\"\n  while parsing "+xmlfile);
   } 
   catch(const exception& e)  {
-    cout << "Exception:" << e.what() << endl;
-    throw runtime_error("Exception:\""+string(e.what())+"\" while parsing "+xmlfile);
+    throw runtime_error(string(e.what())+"\n           while parsing "+xmlfile);
   }
   catch(...)  {
-    cout << "UNKNOWN Exception" << endl;
     throw runtime_error("UNKNOWN exception while parsing "+xmlfile);
   }
 #endif
 }
 
 void LCDDImp::dump() const  {
-  TGeoManager* mgr = gGeoManager;
+  TGeoManager* mgr = m_manager;
   mgr->SetVisLevel(4);
   mgr->SetVisOption(1);
   m_worldVol->Draw("ogl");

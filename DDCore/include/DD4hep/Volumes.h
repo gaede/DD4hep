@@ -47,26 +47,40 @@ namespace DD4hep {
      *  @author  M.Frank
      *  @version 1.0
      */
-    struct PlacedVolume : Handle<TGeoNodeMatrix> {
-      typedef std::map<std::string,int> VolIDs;
+    struct PlacedVolume : Handle<TGeoNode> {
+      typedef std::pair<std::string,int> VolID;
+      struct VolIDs : public std::vector<VolID>   {
+	typedef std::vector<VolID> Base;
+        VolIDs() : Base() {}
+	~VolIDs () {}
+	Base::const_iterator find(const std::string& name)  const;
+	std::pair<Base::iterator,bool> insert(const std::string& name, int value);
+      };
       struct Object  {
 	/// Magic word
         unsigned long magic;
 	/// ID container
         VolIDs        volIDs;
 	/// Default constructor
-        Object() : volIDs() {}
+        Object();
 	/// Copy constructor
-	Object(const Object& c) : magic(c.magic), volIDs(c.volIDs) {}
+	Object(const Object& c);
+	/// Default destructor
+        virtual ~Object();
+	/// Assignment operator
+	Object& operator=(const Object& c) { magic=c.magic; volIDs=c.volIDs; return *this; }
       };
       /// Constructor to be used when reading the already parsed DOM tree
-      PlacedVolume(const TGeoNode* e) : Handle<TGeoNodeMatrix>(e) {}
+      PlacedVolume(const TGeoNode* e) : Handle<TGeoNode>(e) {}
       /// Default constructor
-      PlacedVolume() : Handle<TGeoNodeMatrix>() {}
+      PlacedVolume() : Handle<TGeoNode>() {}
       /// Copy assignment
-      PlacedVolume(const PlacedVolume& e) : Handle<TGeoNodeMatrix>(e) {}
+      PlacedVolume(const PlacedVolume& e) : Handle<TGeoNode>(e) {}
       /// Copy assignment from other handle type
-      template <typename T> PlacedVolume(const Handle<T>& e) : Handle<TGeoNodeMatrix>(e) {}
+      template <typename T> PlacedVolume(const Handle<T>& e) : Handle<TGeoNode>(e) {}
+      /// Assignment operator (must match copy constructor)
+      PlacedVolume& operator=(const PlacedVolume& v) {  m_element=v.m_element;  return *this; }
+
       /// Add identifier
       PlacedVolume& addPhysVolID(const std::string& name, int value);
       /// Volume material
@@ -99,8 +113,19 @@ namespace DD4hep {
         VisAttr       vis;
         Ref_t         sens_det;
 	int           referenced;
-        Object() : region(), limits(), vis(), sens_det(), referenced(0)  {}
-        void copy(const Object& c) { region=c.region; limits=c.limits; vis=c.vis; sens_det=c.sens_det; referenced=c.referenced; }
+	/// Default constructor
+        Object();
+	/// Default destructor
+        virtual ~Object();
+	/// Copy the object
+	void copy(const Object& c) { 
+	  magic      = c.magic; 
+	  region     = c.region; 
+	  limits     = c.limits; 
+	  vis        = c.vis; 
+	  sens_det   = c.sens_det; 
+	  referenced = c.referenced;
+	}
       };
 
       public:
@@ -119,62 +144,61 @@ namespace DD4hep {
       /// Constructor to be used when creating a new geometry tree. Also sets materuial and solid attributes
       Volume(const std::string& name, const Solid& s, const Material& m);
       
+      /// Assignment operator (must match copy constructor)
+      Volume& operator=(const Volume& a) {  m_element=a.m_element;  return *this; }
+
       /// Place daughter volume. The position and rotation are the identity
-      PlacedVolume placeVolume(const Volume& vol)  const  
-      { return placeVolume(vol,IdentityPos());                        }
+      PlacedVolume placeVolume(const Volume& vol)  const;
       /// Place daughter volume according to generic Transform3D
       PlacedVolume placeVolume(const Volume& volume, const Transform3D& tr)  const;
       /// Place un-rotated daughter volume at the given position.
       PlacedVolume placeVolume(const Volume& vol, const Position& pos)  const;
       /// Place rotated daughter volume. The position is automatically the identity position
       PlacedVolume placeVolume(const Volume& vol, const Rotation& rot)  const;
-      /// Place rotated and then translated daughter volume
-      PlacedVolume placeVolume(const Volume& vol, const Position& pos, const Rotation& rot)  const;
-      /// Place daughter volume in rotated and then translated mother coordinate system
-      PlacedVolume placeVolume(const Volume& vol, const Rotation& rot, const Position& pos)  const;
-      
-      /// Place daughter volume. The position and rotation are the identity
-      PlacedVolume placeVolume(const Volume& vol, const IdentityPos& pos)  const;
-      /// Place daughter volume. The position and rotation are the identity
-      PlacedVolume placeVolume(const Volume& vol, const IdentityRot& pos)  const;
-      
+      /// Place rotated daughter volume. The position is automatically the identity position
+      PlacedVolume placeVolume(const Volume& vol, const Rotation3D& rot)  const;
+     
       /// Attach attributes to the volume
-      void setAttributes(const LCDD& lcdd,
-                         const std::string& region, 
-                         const std::string& limits, 
-                         const std::string& vis) const;
+      const Volume& setAttributes(const LCDD& lcdd,
+				  const std::string& region, 
+				  const std::string& limits, 
+				  const std::string& vis) const;
       
+      /// Set the regional attributes to the volume. Note: If the name string is empty, the action is ignored.
+      const Volume& setRegion(const LCDD& lcdd, const std::string& name)  const;
       /// Set the regional attributes to the volume
-      void setRegion(const Region& obj)  const;
+      const Volume& setRegion(const Region& obj)  const;
       /// Access to the handle to the region structure
       Region region() const;
       
+      /// Set the limits to the volume. Note: If the name string is empty, the action is ignored.
+      const Volume& setLimitSet(const LCDD& lcdd, const std::string& name)  const;
       /// Set the limits to the volume
-      void setLimitSet(const LimitSet& obj)  const;
+      const Volume& setLimitSet(const LimitSet& obj)  const;
       /// Access to the limit set
       LimitSet limitSet() const;
 
       /// Set Visualization attributes to the volume
-      void setVisAttributes(const VisAttr& obj) const;
-      /// Set Visualization attributes to the volume
-      void setVisAttributes(const LCDD& lcdd, const std::string& name) const;
+      const Volume& setVisAttributes(const VisAttr& obj) const;
+      /// Set Visualization attributes to the volume. Note: If the name string is empty, the action is ignored.
+      const Volume& setVisAttributes(const LCDD& lcdd, const std::string& name) const;
       /// Access the visualisation attributes
       VisAttr  visAttributes() const;
       
       /// Assign the sensitive detector structure
-      void setSensitiveDetector(const SensitiveDetector& obj) const;
+      const Volume& setSensitiveDetector(const SensitiveDetector& obj) const;
       /// Access to the handle to the sensitive detector
       Ref_t sensitiveDetector() const;
       /// Accessor if volume is sensitive (ie. is attached to a sensitive detector)
       bool isSensitive() const;
 
       /// Set the volume's solid shape
-      void setSolid(const Solid& s)  const;
+      const Volume& setSolid(const Solid& s)  const;
       /// Access to Solid (Shape)
       Solid solid() const;
       
       /// Set the volume's material
-      void setMaterial(const Material& m)  const;
+      const Volume& setMaterial(const Material& m)  const;
       /// Access to the Volume material
       Material material() const;
       
@@ -201,6 +225,9 @@ namespace DD4hep {
       
       /// Constructor to be used when creating a new geometry tree.
       Assembly(const std::string& name);
+
+      /// Assignment operator (must match copy constructor)
+      Assembly& operator=(const Assembly& a) {  m_element=a.m_element;  return *this; }
     };
 
   }       /* End namespace Geometry          */

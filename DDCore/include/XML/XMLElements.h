@@ -570,6 +570,8 @@ namespace DD4hep {
       Elt_t ptr() const                                         {  return m_element;                      }
 
       /// Access the tag name of this DOM element
+      std::string tag() const                                   {  return m_element.tag();                }
+      /// Access the tag name of this DOM element
       const XmlChar* tagName() const                            {  return m_element.rawTag();             }
       /// Append a new element to the existing tree
       void append(Handle_t handle) const                        {  m_element.append(handle);              }
@@ -636,6 +638,8 @@ namespace DD4hep {
       RefElement(const RefElement& e);
       /// Initializing constructor to create a new XMLElement and add it to the document.
       RefElement(const Document& d, const XmlChar* type, const XmlChar* name);
+      /// Assignment operator
+      RefElement& operator=(const RefElement& e);
       /// Access the object's name in unicode
       const XmlChar* name() const;
       /// Access the object's reference name in unicode (same as name)

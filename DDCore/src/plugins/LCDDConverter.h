@@ -94,20 +94,17 @@ namespace DD4hep {
 	  doc_display, doc_gdml, doc_fields, doc_define, doc_materials, doc_solids, doc_structure, doc_setup;
 	GeometryInfo();
       };
+      typedef std::set<std::string> NameSet;
+
       /// Reference to detector description
       LCDD&           m_lcdd;
-      /// Processing flag
-      bool            m_checkOverlaps;
-
-      typedef std::set<std::string> NameSet;
       mutable NameSet m_checkNames;
+      GeometryInfo*   m_dataPtr;
 
-      GeometryInfo* m_dataPtr;
       GeometryInfo& data() const { return *m_dataPtr; }
 
       /// Data integrity checker
       void checkVolumes(const std::string& name, const TGeoVolume* volume) const;
-
       
       /// Initializing Constructor
       LCDDConverter( LCDD& lcdd );
@@ -161,6 +158,9 @@ namespace DD4hep {
 
       /// Convert the geometry type SensitiveDetector into the corresponding Xml object(s).
       virtual xml_h handleSensitive(const std::string& name, const TNamed* sens_det)  const;
+
+      /// Convert the segmentation of a SensitiveDetector into the corresponding LCDD object
+      virtual xml_h handleSegmentation(Segmentation seg)  const;
 
       /// Convert the Position into the corresponding Xml object(s).
       virtual xml_h handlePosition(const std::string& name, const TGeoMatrix* trafo)   const;

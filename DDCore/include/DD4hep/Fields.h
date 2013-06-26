@@ -47,13 +47,15 @@ namespace DD4hep {
       typedef std::map<std::string,PropertyValues>  Properties;
 
       /// Internal data class shared by all handles of a given type
-      struct Object {
+      struct Object : public TNamed {
 	/// Field type
 	int type;
 	/// Field extensions
 	Properties properties;
 	/// Default constructor
-	Object() : type(UNKNOWN) {}
+	Object();
+	/// Default destructor
+	virtual ~Object();
 	/// Call to access the field components at a given location
 	virtual void fieldComponents(const double* pos, double* field) = 0;
       };
@@ -66,6 +68,9 @@ namespace DD4hep {
 
       /// Constructor to be used when reading the already parsed DOM tree
       template <typename Q> CartesianField(const Handle<Q>& e) : Ref_t(e)  {}
+
+      /// Assignment operator
+      CartesianField& operator=(const CartesianField& f) {  m_element=f.m_element;  return *this; }
 
       /// Access the field type
       int fieldType()  const {  return data<Object>()->type; }
@@ -109,7 +114,7 @@ namespace DD4hep {
       typedef std::map<std::string,std::string> PropertyValues;
       typedef std::map<std::string,PropertyValues>  Properties;
 
-      struct Object   {
+      struct Object : public TNamed  {
 	int                          type;
 	CartesianField               electric;
 	CartesianField               magnetic;
@@ -117,7 +122,10 @@ namespace DD4hep {
 	std::vector<CartesianField>  magnetic_components;
 	/// Field extensions
 	Properties                   properties;
-	Object() : type(0), electric(), magnetic() {}
+	/// Default constructor
+	Object();
+	/// Default destructor
+	virtual ~Object();
       };
 
       /// Default constructor

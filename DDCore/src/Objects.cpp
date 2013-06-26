@@ -9,6 +9,7 @@
 
 #include "DD4hep/LCDD.h"
 #include "DD4hep/IDDescriptor.h"
+#include "DD4hep/InstanceCount.h"
 
 #include "TMap.h"
 #include "TROOT.h"
@@ -30,9 +31,39 @@ Author::Author(LCDD& /* lcdd */)  {
   m_element = new TNamed("","author");
 }
 
+/// Access the auhor's name
+std::string Author::authorName() const   {
+  return m_element->GetName();
+}
+
+/// Set the author's name
+void Author::setAuthorName(const std::string& nam)   {
+  m_element->SetName(nam.c_str());
+}
+
+/// Access the auhor's email address
+std::string Author::authorEmail() const   {
+  return m_element->GetTitle();
+}
+
+/// Set the author's email address
+void Author::setAuthorEmail(const std::string& addr)   {
+  m_element->SetTitle(addr.c_str());
+}
+
+/// Standard constructor
+Header::Object::Object() : TNamed() {
+  InstanceCount::increment(this);
+}
+
+/// Default destructor
+Header::Object::~Object()  {
+  InstanceCount::decrement(this);
+}
+
 /// Constructor to be used when creating a new DOM tree
 Header::Header(const string& author, const string& url)   {
-  Value<TNamed,Object>* ptr = new Value<TNamed,Object>();
+  Object* ptr = new Object();
   assign(ptr,author, url);
 }
 
@@ -136,13 +167,6 @@ Atom::Atom(const string& name, const string& formula, int Z, int N, double densi
   m_element = e;
 }
 
-/// Constructor to be used when creating a new DOM tree
-Material::Material(const string& name)   {
-  //TGeoMaterial* mat = gGeoManager->GetMaterial(name.c_str());
-  TGeoMedium* mat = gGeoManager->GetMedium(name.c_str());
-  m_element = mat;
-}
-
 /// Access the radiation length of the undrelying material
 double Material::radLength() const {
   Handle<TGeoMedium>  val(*this);
@@ -163,9 +187,23 @@ string Material::toString()  const {
   return os.str();
 }
 
+/// Standard constructor
+VisAttr::Object::Object()  
+ : magic(magic_word()), col(0), color(0), alpha(0), 
+   drawingStyle(SOLID), lineStyle(SOLID), 
+   showDaughters(true), visible(true)
+{
+  InstanceCount::increment(this);
+}
+
+/// Default destructor
+VisAttr::Object::~Object()  {
+  InstanceCount::decrement(this);
+}
+
 /// Constructor to be used when creating a new DOM tree
 VisAttr::VisAttr(const string& name)    {
-  Value<TNamed,Object>* obj = new Value<TNamed,Object>();
+  Object* obj = new Object();
   assign(obj, name, "vis");
   obj->color  = 2;
   setLineStyle(SOLID);
@@ -176,73 +214,73 @@ VisAttr::VisAttr(const string& name)    {
 
 /// Get Flag to show/hide daughter elements
 bool VisAttr::showDaughters() const  {
-  return _data().showDaughters;
+  return object<Object>().showDaughters;
 }
 
 /// Set Flag to show/hide daughter elements
 void VisAttr::setShowDaughters(bool value)   {
-  _data().showDaughters = value;
+  object<Object>().showDaughters = value;
 }
 
 /// Get visibility flag
 bool VisAttr::visible() const   {
-  return _data().visible;
+  return object<Object>().visible;
 }
 
 /// Set visibility flag
 void VisAttr::setVisible(bool value)   {
-  _data().visible = value;
+  object<Object>().visible = value;
 }
 
 /// Get line style
 int VisAttr::lineStyle()  const {
-  return _data().lineStyle;
+  return object<Object>().lineStyle;
 }
 
 /// Set line style
 void VisAttr::setLineStyle(int value)  {
-  _data().lineStyle = value;
+  object<Object>().lineStyle = value;
 }
 
 /// Get drawing style
 int VisAttr::drawingStyle()  const {
-  return _data().drawingStyle;
+  return object<Object>().drawingStyle;
 }
 
 /// Set drawing style
 void VisAttr::setDrawingStyle(int value)   {
-  _data().drawingStyle = value;
+  object<Object>().drawingStyle = value;
 }
 
 /// Get alpha value
 float VisAttr::alpha() const  {
   //TNamed* obj = first_value<TNamed>(*this);
   //obj->SetAlpha(value);
-  return _data().alpha;
+  return object<Object>().alpha;
 }
 
 /// Set alpha value
 void VisAttr::setAlpha(float value)   {
-  _data().alpha = value;
+  object<Object>().alpha = value;
   //TNamed* obj = first_value<TNamed>(*this);
   //obj->SetAlpha(value);
 }
 
 /// Get object color
 int VisAttr::color()   const  {
-  return _data().color;
+  return object<Object>().color;
 }
 
 /// Set object color
 void VisAttr::setColor(float red, float green, float blue)   {
-  Object& o = _data();
+  Object& o = object<Object>();
   o.color = TColor::GetColor(red,green,blue);
   o.col   = gROOT->GetColor(o.color);
 }
 
 /// Get RGB values of the color (if valid)
 bool VisAttr::rgb(float& red, float& green, float& blue) const {
-  Object& o = _data();
+  Object& o = object<Object>();
   if ( o.col ) {
     TColor* c = (TColor*)o.col;
     c->GetRGB(red,green,blue);
@@ -253,10 +291,11 @@ bool VisAttr::rgb(float& red, float& green, float& blue) const {
 
 /// String representation of this object
 string VisAttr::toString()  const {
-  const VisAttr::Object* obj = &_data();
+  const VisAttr::Object* obj = &object<Object>();
   TColor* col = gROOT->GetColor(obj->color);
   char text[256];
-  ::sprintf(text,"%-20s RGB:%-8s [%d] %7.2f  Style:%d %d ShowDaughters:%3s Visible:%3s",
+  ::snprintf(text,sizeof(text),
+	    "%-20s RGB:%-8s [%d] %7.2f  Style:%d %d ShowDaughters:%3s Visible:%3s",
 	    ptr()->GetName(),col->AsHexString(), obj->color, col->GetAlpha(), 
 	    int(obj->drawingStyle), int(obj->lineStyle),
 	    obj->showDaughters ? "YES" : "NO", obj->visible ? "YES" : "NO");
@@ -297,11 +336,13 @@ int AlignmentEntry::align(const Position& pos, const Rotation& rot, bool check, 
 
 /// Assignment operator
 Limit& Limit::operator=(const Limit& c) 	{ 
-  particles = c.particles;
-  name      = c.name;
-  unit      = c.unit;
-  value     = c.value; 
-  content   = c.content;
+  if ( this != &c ) {
+    particles = c.particles;
+    name      = c.name;
+    unit      = c.unit;
+    value     = c.value; 
+    content   = c.content;
+  }
   return *this;
 }
 
@@ -326,9 +367,19 @@ string Limit::toString()  const {
   return res;
 }
 
+/// Standard constructor
+LimitSet::Object::Object()  {
+  InstanceCount::increment(this);
+}
+
+/// Default destructor
+LimitSet::Object::~Object()  {
+  InstanceCount::decrement(this);
+}
+
 /// Constructor to be used when creating a new DOM tree
 LimitSet::LimitSet(const string& name)   {
-  assign(new Value<TNamed,Object>(),name,"limitset");
+  assign(new Object(),name,"limitset");
 }
 
 /// Add new limit. Returns true if the new limit was added, false if it already existed.
@@ -338,13 +389,25 @@ bool LimitSet::addLimit(const Limit& limit)   {
 }
 
 /// Accessor to limits container
-const LimitSet::Object& LimitSet::limits() const {
-  return *(data<Object>());
+const set<Limit>& LimitSet::limits() const {
+  const Object* o = data<Object>();
+  return *o;
+}
+
+
+/// Standard constructor
+Region::Object::Object()  {
+  InstanceCount::increment(this);
+}
+
+/// Default destructor
+Region::Object::~Object()  {
+  InstanceCount::decrement(this);
 }
 
 /// Constructor to be used when creating a new DOM tree
 Region::Region(const string& name)   {
-  Value<TNamed,Object>* p = new Value<TNamed,Object>();
+  Object* p = new Object();
   assign(p, name, "region");
   p->magic = magic_word();
   p->store_secondaries = false;
@@ -355,69 +418,84 @@ Region::Region(const string& name)   {
 }
 
 Region& Region::setStoreSecondaries(bool value)  {
-  _data().store_secondaries = value;
+  object<Object>().store_secondaries = value;
   return *this;
 }
 
 Region& Region::setThreshold(double value)  {
-  _data().threshold = value;
+  object<Object>().threshold = value;
   return *this;
 }
 
 Region& Region::setCut(double value)  {
-  _data().cut = value;
+  object<Object>().cut = value;
   return *this;
 }
 
 Region& Region::setLengthUnit(const string& unit)  {
-  _data().lunit = unit;
+  object<Object>().lunit = unit;
   return *this;
 }
 
 Region& Region::setEnergyUnit(const string& unit)  {
-  _data().eunit = unit;
+  object<Object>().eunit = unit;
   return *this;
 }
 
 /// Access references to user limits
 vector<string>& Region::limits() const {
-  return _data().user_limits;
+  return object<Object>().user_limits;
 }
 
 /// Access cut value
 double Region::cut() const {
-  return _data().cut;
+  return object<Object>().cut;
 }
 
 /// Access production threshold
 double Region::threshold() const {
-  return _data().threshold;
+  return object<Object>().threshold;
 }
 
 /// Access secondaries flag
 bool Region::storeSecondaries() const {
-  return _data().store_secondaries;
+  return object<Object>().store_secondaries;
 }
 
 /// Access the length unit
 const std::string& Region::lengthUnit() const   {
-  return _data().lunit;
+  return object<Object>().lunit;
 }
 
 /// Access the energy unit
 const std::string& Region::energyUnit() const   {
-  return _data().eunit;
+  return object<Object>().eunit;
 }
 
 #undef setAttr
 
 #if 0
+
+/** @class IDSpec Objects.h
+ *  
+ *  @author  M.Frank
+ *  @version 1.0
+ */
+struct IDSpec : public Ref_t   {
+  /// Constructor to be used when reading the already parsed DOM tree
+  template <typename Q> 
+  IDSpec(const Handle<Q>& e) : Ref_t(e) {}
+  /// Constructor to be used when creating a new DOM tree
+  IDSpec(LCDD& doc, const std::string& name, const IDDescriptor& dsc);
+  void addField(const std::string& name, const std::pair<int,int>& field);
+};
+
 IDSpec::IDSpec(LCDD& lcdd, const string& name, const IDDescriptor& dsc) 
 : RefElement(doc,Tag_idspec,name)
 {
   const IDDescriptor::FieldIDs& f = dsc.ids();
   const IDDescriptor::FieldMap& m = dsc.fields();
-  _data().Attr_length = dsc.maxBit();
+  object<Object>().Attr_length = dsc.maxBit();
   for(IDDescriptor::FieldIDs::const_iterator i=f.begin(); i!=f.end();++i)  {
     int ident = (*i).first;
     const string& nam = (*i).second;
@@ -432,10 +510,10 @@ void IDSpec::addField(const string& name, const pair<int,int>& field)  {
 
 void IDSpec::addField(const string& name, const pair<int,int>& field)  {
   Element e(document(),Tag_idfield);
-  e._data().Attr_signed = field.second<0;
-  e._data().Attr_label = name;
-  e._data().Attr_start = field.first;
-  e._data().Attr_length = abs(field.second);
+  e.object<Object>().Attr_signed = field.second<0;
+  e.object<Object>().Attr_label = name;
+  e.object<Object>().Attr_start = field.first;
+  e.object<Object>().Attr_length = abs(field.second);
   m_element.append(e);
 }
 #endif

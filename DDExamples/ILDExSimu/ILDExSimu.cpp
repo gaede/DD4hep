@@ -8,6 +8,14 @@
 #include "G4UImanager.hh"
 #include "G4UIsession.hh"
 #include "Randomize.hh"
+#include "G4VisExecutive.hh"
+#include "G4UIterminal.hh"
+#include "G4UIExecutive.hh"
+#include "G4UItcsh.hh"
+#ifdef G4VIS_USE_QT
+#include "G4UIQt.hh"
+#endif
+#include "QGSP_BERT.hh"
 
 //#include "ILDExDetectorConstruction.hh"
 #include "ILDExPhysicsList.h"
@@ -16,9 +24,10 @@
 #include "ILDExEventAction.h"
 #include "ILDExSteppingAction.h"
 #include "ILDExSteppingVerbose.h"
-#include "G4UIExecutive.hh"
 
 #include "DDG4/Geant4DetectorConstruction.h"
+#include "DDG4/Geant4GDMLDetector.h"
+
 #include "DD4hep/LCDD.h"
 
 // -- lcio --
@@ -47,9 +56,50 @@ int main(int argc,char** argv)
   CLHEP::HepRandom::setTheEngine(new CLHEP::RanecuEngine);
   
   LCDD& lcdd = LCDD::getInstance();
-  for(int i=1; i<argc-1;++i) {
-    // We need to construct the geometry at this level already
-    lcdd.fromCompact(argv[i]);
+
+  if( argc < 3 ){
+    std::cout << " --- Usage: \n " 
+	      << "  [1] ./bin/ILDExSimu  file:../DDExamples/ILDExDet/compact/ILDEx.xml file:../DDExamples/ILDExDet/compact/geant4.xml run1_g4.mac \n"
+	      << "  [2] ./bin/ILDExSimu  -i file:../DDExamples/ILDExDet/compact/ILDEx.xml file:../DDExamples/ILDExDet/compact/geant4.xml \n"
+	      << "  [3] ./bin/ILDExSimu  -g ./ILD_toy.gdml \n" 
+	      << "  [1]: batch mode - [2]: interactive [3]: interactive reading a gdml file " << std::endl ;
+    exit( 0 ) ;
+  }
+
+
+
+//**************************************************************
+
+  bool isReadGDML  = ( std::string( argv[1] ) == "-g" ) ;
+
+  bool isBatchMode = ( std::string( argv[1] ) != "-i" && !isReadGDML  ) ;
+
+  int argStart = ( isBatchMode ?       1 : 2 ) ; 
+  int argEnd   = ( isBatchMode ?  argc-1 : argc ) ; 
+
+  if( ! isReadGDML ) {
+    
+    for(int i=argStart; i < argEnd ; ++i ) {
+      
+      // We need to construct the geometry at this level already
+      lcdd.fromCompact(argv[i]);
+    }
+  }
+
+  //**************************************************************
+
+  // Get the detector constructed
+  //
+  //  G4VUserDetectorConstruction* detector  = ( isReadGDML ?    new Geant4GDMLeDetector( argv[2] )   :   new Geant4DetectorConstruction(lcdd)  ) ;
+  G4VUserDetectorConstruction* detector  =  0 ;
+  if( isReadGDML )  {
+    
+    detector  = new Geant4GDMLDetector( argv[2] ) ;
+
+  } else {
+    
+    detector  =  new Geant4DetectorConstruction( lcdd )   ;
+
   }
 
   // User Verbose output class
@@ -60,34 +110,36 @@ int main(int argc,char** argv)
   //
   G4RunManager * runManager = new G4RunManager;
   
-  // Get the detector constructed
-  //
-  Geant4DetectorConstruction* detector = new Geant4DetectorConstruction(lcdd);
+  
   runManager->SetUserInitialization(detector);
   
   //
-  G4VUserPhysicsList* physics = new ILDExPhysicsList;
+  G4VUserPhysicsList* physics = new QGSP_BERT ; //new ILDExPhysicsList;
   runManager->SetUserInitialization(physics);
   
-  // Set user action classes
-  //
-  G4VUserPrimaryGeneratorAction* gen_action = 
-  new ILDExPrimaryGeneratorAction(lcdd);
-  runManager->SetUserAction(gen_action);
 
-  //---
-  ILDExRunAction* run_action = new ILDExRunAction;  
-  run_action->runData.lcioWriter = lcWrt ;
-  run_action->runData.detectorName = lcdd.header().name() ;
-  runManager->SetUserAction(run_action);
-
-  //
-  ILDExEventAction* event_action = new ILDExEventAction(run_action);
-  runManager->SetUserAction(event_action);
-  //
-  G4UserSteppingAction* stepping_action =
-  new ILDExSteppingAction(event_action);
-  runManager->SetUserAction(stepping_action);
+  if( ! isReadGDML ) {
+    // Set user action classes
+    //
+    G4VUserPrimaryGeneratorAction* gen_action = 
+      new ILDExPrimaryGeneratorAction(lcdd);
+    runManager->SetUserAction(gen_action);
+    
+    //---
+    ILDExRunAction* run_action = new ILDExRunAction;  
+    run_action->runData.lcioWriter = lcWrt ;
+    run_action->runData.detectorName = lcdd.header().name() ;
+    runManager->SetUserAction(run_action);
+    
+    //
+    ILDExEventAction* event_action = new ILDExEventAction(run_action);
+    runManager->SetUserAction(event_action);
+    //
+    G4UserSteppingAction* stepping_action =
+      new ILDExSteppingAction(event_action);
+    runManager->SetUserAction(stepping_action);
+    
+  }
   
   // Initialize G4 kernel
   //
@@ -95,37 +147,39 @@ int main(int argc,char** argv)
   
   // Initialize visualization
   //
-  //G4VisManager* visManager = new G4VisExecutive;
-  //visManager->Initialize();
-    
+  G4VisManager* visManager = new G4VisExecutive;
+  visManager->Initialize();
+  
   // Get the pointer to the User Interface manager
   
   lcWrt->open( lcioOutFile , lcio::LCIO::WRITE_NEW ) ;
   
   G4UImanager* UImanager = G4UImanager::GetUIpointer();
   
-  if (argc!=1) {   // batch mode
+  if ( isBatchMode) {   // batch mode
+    
     G4String command = "/control/execute ";
     G4String fileName = argv[argc-1];
     UImanager->ApplyCommand(command+fileName);    
-  }
-  else {  // interactive mode : define UI session
     
-    //G4UIsession* ui = new G4UIQt(argc, argv);
+  } else {  // interactive mode : define UI session
     
-    //ui->SessionStart();
-    //delete ui;
+    // G4UIsession *ui = new G4UIterminal(new G4UItcsh());
+    // G4UIsession* ui = new G4UIQt(argc, argv);
+    G4UIExecutive* ui = new G4UIExecutive(argc, argv);
     
-  }
+    ui->SessionStart();
+    // end ...
+    delete ui;
+ }
   
   // Job termination
   // Free the store: user actions, physics_list and detector_description are
   //                 owned and deleted by the run manager, so they should not
   //                 be deleted in the main() program !
   
-  //delete visManager;
-  
-  
+
+  delete visManager;
   delete runManager;
 
   lcWrt->close() ;

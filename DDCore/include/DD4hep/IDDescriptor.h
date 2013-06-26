@@ -35,15 +35,41 @@ namespace DD4hep {
      *  @date    2012/07/31
      */
     struct IDDescriptor : public Ref_t  {
-      public:
-      typedef std::pair<int,int>          Field;
-      typedef std::vector<std::pair<std::string,Field> > FieldMap;
-      typedef std::vector<std::pair<int,std::string> >   FieldIDs;
-      struct Object {
+    public:
+      typedef unsigned long long int VolumeID;
+      //typedef std::pair<int,int>          Field;
+      struct Field  {
+	int first, second;
+	VolumeID mask;
+	VolumeID encode(int value)  const  {
+	  VolumeID v = value;
+	  //FGxx return  ( (  v  << first )  & mask  ) ;
+	  return mask|((v<<(64-second))>>first);
+
+	}
+	int decode(VolumeID value)  const  {
+	  //FGxx return  ( mask & value ) >> first  ;
+	  return (~mask&value)>>(64-second-first);
+	}
+      };
+      typedef std::vector<std::pair<std::string,Field> >  FieldMap;
+      typedef std::vector<std::pair<size_t,std::string> > FieldIDs;
+
+      /** @class IDDescriptor::Object IDDescriptor.h DDCore/IDDescriptor.h
+       *  
+       *  @author  M.Frank
+       *  @version 1.0
+       *  @date    2012/07/31
+       */
+      struct Object : public TNamed {
+	std::string description;
 	FieldMap    fieldMap;
 	FieldIDs    fieldIDs;
 	int         maxBit;
-	Object() : maxBit(0) {}
+	/// Standard constructor
+	Object();
+	/// Default destructor
+	virtual ~Object();
       };
       public:
       /// Default constructor
@@ -53,9 +79,20 @@ namespace DD4hep {
       
       /// Initializing constructor
       IDDescriptor(const std::string& description);
+      /// The total number of encoding bits for this descriptor
       int maxBit() const;
+      /// Access the field-id container 
       const FieldIDs& ids() const;
+      /// Access the fieldmap container 
       const FieldMap& fields() const;
+      /// Get the field descriptor of one field by name
+      Field field(const std::string& field_name)  const;
+      /// Get the field identifier of one field by name
+      size_t fieldID(const std::string& field_name)  const;
+      /// Get the field descriptor of one field by its identifier
+      Field field(size_t identifier)  const;
+      /// Acces string representation
+      std::string toString() const;
     };
   }       /* End namespace Geometry    */
 }         /* End namespace DD4hep      */

@@ -8,6 +8,7 @@
 //====================================================================
 
 #include "DD4hep/IDDescriptor.h"
+#include "DD4hep/InstanceCount.h"
 #include <stdexcept>
 #include <cstdlib>
 #include <cmath>
@@ -38,6 +39,8 @@ namespace {
     o->maxBit = 0;
     o->fieldIDs.clear();
     o->fieldMap.clear();
+    o->description = dsc ;
+
     for(Elements::const_iterator i=elements.begin();i!=elements.end();++i)  {
       const string& s = *i;
       f.clear();
@@ -46,6 +49,11 @@ namespace {
 	throw runtime_error("Invalid field descriptor:"+dsc);
       field.first  = f.size() == 3 ? ::atoi(f[1].c_str()) : pos;
       field.second = f.size() == 3 ? ::atoi(f[2].c_str()) : ::atoi(f[1].c_str());
+      field.second = ::abs(field.second);
+
+      //FG:   field.mask = ( ( 0x0001LL << (field.second) ) - 1 ) << field.first ;
+      field.mask   = ~((~0x0ull<<(64-field.second))>>(64-field.second)<<(64-field.first-field.second));
+
       pos = field.first + ::abs(field.second);
       if ( pos>o->maxBit ) o->maxBit = pos;
       o->fieldIDs.push_back(make_pair(o->fieldMap.size(),f[0]));
@@ -54,19 +62,71 @@ namespace {
   }
 }
 
+/// Standard constructor
+IDDescriptor::Object::Object() : TNamed(), maxBit(0) {
+  InstanceCount::increment(this);
+
+}
+/// Default destructor
+IDDescriptor::Object::~Object()  {
+  InstanceCount::decrement(this);
+}
+ 
 /// Initializing constructor
 IDDescriptor::IDDescriptor(const string& description) 
 {
-  Value<TNamed,Object>* obj = new Value<TNamed,Object>();
+  Object* obj = new Object();
   assign(obj,description,"iddescriptor");
   _construct(obj, description);
 }
 
-int IDDescriptor::maxBit() const             
-{ return data<Object>()->maxBit;   }
+/// Acces string representation
+string IDDescriptor::toString() const  {
+  if ( isValid() )  {
+    return data<Object>()->description;
+  }
+  return "----";
+}
 
-const IDDescriptor::FieldIDs& IDDescriptor::ids() const    
-{ return data<Object>()->fieldIDs; }
+/// The total number of encoding bits for this descriptor
+int IDDescriptor::maxBit() const  { 
+  return data<Object>()->maxBit;
+}
 
-const IDDescriptor::FieldMap& IDDescriptor::fields() const 
-{ return data<Object>()->fieldMap; }
+/// Access the field-id container 
+const IDDescriptor::FieldIDs& IDDescriptor::ids() const    {
+  if ( isValid() )  {
+    return data<Object>()->fieldIDs;
+  }
+  throw runtime_error("Attempt to access an invalid IDDescriptor object.");
+}
+
+/// Access the fieldmap container 
+const IDDescriptor::FieldMap& IDDescriptor::fields() const  { 
+  if ( isValid() )  {
+    return data<Object>()->fieldMap; 
+  }
+  throw runtime_error("Attempt to access an invalid IDDescriptor object.");
+}
+
+/// Get the field descriptor of one field by name
+IDDescriptor::Field IDDescriptor::field(const string& field_name)  const  {
+  const FieldMap& m = fields(); // This already checks the object validity
+  for(FieldMap::const_iterator i=m.begin(); i!=m.end(); ++i)
+    if ( (*i).first == field_name ) return (*i).second;
+  throw runtime_error(string(name())+": This ID descriptor has no field with the name:"+field_name);
+}
+
+/// Get the field descriptor of one field by its identifier
+IDDescriptor::Field IDDescriptor::field(size_t identifier)  const   {
+  const FieldMap& m = fields(); // This already checks the object validity
+  return m[identifier].second;
+}
+
+/// Get the field identifier of one field by name
+size_t IDDescriptor::fieldID(const string& field_name)  const   {
+  const FieldIDs& m = ids(); // This already checks the object validity
+  for(FieldIDs::const_iterator i=m.begin(); i!=m.end(); ++i)
+    if ( (*i).second == field_name ) return (*i).first;
+  throw runtime_error(string(name())+": This ID descriptor has no field with the name:"+field_name);
+}

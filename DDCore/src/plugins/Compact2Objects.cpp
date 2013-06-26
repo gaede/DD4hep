@@ -11,6 +11,7 @@
 #include "DD4hep/DetFactoryHelper.h"
 #include "DD4hep/IDDescriptor.h"
 #include "DD4hep/FieldTypes.h"
+#include "DD4hep/Printout.h"
 #include "XML/DocumentHandler.h"
 #include "XML/Conversions.h"
 
@@ -57,6 +58,11 @@ namespace DD4hep {
 
 namespace {
   static UInt_t unique_mat_id = 0xAFFEFEED;
+  void throw_print(const std::string& msg)  {
+    printout(ERROR,"Compact",msg.c_str());
+    throw runtime_error(msg);
+  }
+
 }
 
 static Ref_t create_GridXYZ(lcdd_t& /* lcdd */, xml_h e)  {
@@ -78,17 +84,22 @@ static Ref_t create_GlobalGridXY(lcdd_t& /* lcdd */, xml_h e)  {
   return obj;
 }
 DECLARE_XMLELEMENT(GlobalGridXY,create_GlobalGridXY);
-  
+
 static Ref_t create_CartesianGridXY(lcdd_t& /* lcdd */, xml_h e)  {
   CartesianGridXY obj;
   if ( e.hasAttr(_U(gridSizeX)) ) obj.setGridSizeX(e.attr<double>(_U(gridSizeX)));
   if ( e.hasAttr(_U(gridSizeY)) ) obj.setGridSizeY(e.attr<double>(_U(gridSizeY)));
   return obj;
 }
+
 DECLARE_XMLELEMENT(CartesianGridXY,create_CartesianGridXY);
 
-namespace DD4hep { namespace Geometry { typedef CartesianGridXY EcalBarrelCartesianGridXY; }}
-DECLARE_XMLELEMENT(EcalBarrelCartesianGridXY,create_CartesianGridXY);
+namespace DD4hep { namespace Geometry { 
+    typedef GridXYZ CartesianGridXYZ; 
+    typedef GridXYZ EcalBarrelCartesianGridXY; 
+}}
+DECLARE_XMLELEMENT(CartesianGridXYZ,create_GridXYZ);
+DECLARE_XMLELEMENT(EcalBarrelCartesianGridXY,create_GridXYZ);
   
 static Ref_t create_ProjectiveCylinder(lcdd_t& /* lcdd */, xml_h e)  {
   ProjectiveCylinder obj;
@@ -114,13 +125,11 @@ static Ref_t create_ProjectiveZPlane(lcdd_t& /* lcdd */, xml_h e)  {
 }
 DECLARE_XMLELEMENT(ProjectiveZPlane,create_ProjectiveZPlane);
 
-
-
 static Ref_t create_ConstantField(lcdd_t& /* lcdd */, xml_h e)  {
   CartesianField obj;
   xml_comp_t field(e), strength(e.child(_U(strength)));
   string t = e.attr<string>(_U(field));
-  Value<TNamed,ConstantField>* ptr = new Value<TNamed,ConstantField>();
+  ConstantField* ptr = new ConstantField();
   ptr->type = ::toupper(t[0])=='E' ? CartesianField::ELECTRIC : CartesianField::MAGNETIC;
   ptr->direction.SetX(strength.x());
   ptr->direction.SetY(strength.y());
@@ -130,21 +139,42 @@ static Ref_t create_ConstantField(lcdd_t& /* lcdd */, xml_h e)  {
 }
 DECLARE_XMLELEMENT(ConstantField,create_ConstantField);
 
-
 static Ref_t create_SolenoidField(lcdd_t& lcdd, xml_h e)  {
   xml_comp_t c(e);
+  bool has_inner_radius = c.hasAttr(_U(inner_radius));
+  bool has_outer_radius = c.hasAttr(_U(outer_radius));
+
+  if ( !has_inner_radius && !has_outer_radius )   {
+    throw_print("Compact2Objects[ERROR]: For a solenoidal field at least one of the "
+		" xml attributes inner_radius of outer_radius MUST be set.");
+  }
   CartesianField obj;
-  Value<TNamed,SolenoidField>* ptr = new Value<TNamed,SolenoidField>();
-  if ( c.hasAttr(_U(inner_radius)) ) ptr->innerRadius = c.attr<double>(_U(inner_radius));
-  else ptr->innerRadius = 0.0;
-  if ( c.hasAttr(_U(outer_radius)) ) ptr->outerRadius = c.attr<double>(_U(outer_radius));
-  else ptr->outerRadius = lcdd.constant<double>("world_side");
+  SolenoidField* ptr = new SolenoidField();
+  //
+  // This logic is a bit weird, but has it's origin in the compact syntax:
+  // If no "inner_radius" is given, the "outer_radius" IS the "inner_radius"
+  // and the "outer_radius" is given by one side of the world volume's box
+  //
+  if ( has_inner_radius && has_outer_radius )  {
+    ptr->innerRadius = c.attr<double>(_U(inner_radius));
+    ptr->outerRadius = c.attr<double>(_U(outer_radius));
+  }
+  else if ( has_inner_radius )  {
+    Box box = lcdd.worldVolume().solid();
+    ptr->innerRadius = c.attr<double>(_U(inner_radius));
+    ptr->outerRadius = box.x();
+  }
+  else if ( has_outer_radius )  {
+    Box box = lcdd.worldVolume().solid();
+    ptr->innerRadius = c.attr<double>(_U(outer_radius));
+    ptr->outerRadius = box.x();
+  }
   if ( c.hasAttr(_U(inner_field))  ) ptr->innerField  = c.attr<double>(_U(inner_field));
   if ( c.hasAttr(_U(outer_field))  ) ptr->outerField  = c.attr<double>(_U(outer_field));
   if ( c.hasAttr(_U(zmax))         ) ptr->maxZ        = c.attr<double>(_U(zmax));
   else ptr->maxZ = lcdd.constant<double>("world_side");
   if ( c.hasAttr(_U(zmin))         ) ptr->minZ        = c.attr<double>(_U(zmin));
-  else                               ptr->minZ        = - ptr->maxZ;
+  else                               ptr->minZ        = -ptr->maxZ;
   obj.assign(ptr,c.nameStr(),c.typeStr());
   return obj;
 }
@@ -155,7 +185,7 @@ DECLARE_XMLELEMENT(solenoid,create_SolenoidField);
 static Ref_t create_DipoleField(lcdd_t& /* lcdd */, xml_h e)  {
   xml_comp_t c(e);
   CartesianField obj;
-  Value<TNamed,DipoleField>* ptr = new Value<TNamed,DipoleField>();
+  DipoleField* ptr = new DipoleField();
   double val, lunit = c.attr<double>(_U(lunit)), funit = c.attr<double>(_U(funit));
 
   if ( c.hasAttr(_U(zmin))  ) ptr->zmin  = _multiply<double>(c.attr<string>(_U(zmin)),lunit);
@@ -224,118 +254,88 @@ template <> void Converter<Header>::operator()(xml_h e)  const  {
  */
 template <> void Converter<Material>::operator()(xml_h e)  const  {
   xml_ref_t         m(e);
-  TGeoManager*      mgr      = gGeoManager;
+  TGeoManager&      mgr      = lcdd.manager();
   xml_tag_t         mname    = m.name();
   const char*       matname  = mname.c_str();
-  TGeoElementTable* table    = mgr->GetElementTable();
-  TGeoMaterial*     mat      = mgr->GetMaterial(matname);
+  TGeoElementTable* table    = mgr.GetElementTable();
+  TGeoMaterial*     mat      = mgr.GetMaterial(matname);
   TGeoMixture*      mix      = dynamic_cast<TGeoMixture*>(mat);
   xml_coll_t        fractions(m,_U(fraction));
   xml_coll_t        composites(m,_U(composite));
   bool has_density = true;
-  bool mat_created = false;
-  set<string> elts;
 
   if ( 0 == mat )  {
+    TGeoMaterial* comp_mat;
+    TGeoElement*  comp_elt;
     xml_h  radlen     = m.child(_U(RL),false);
     xml_h  intlen     = m.child(_U(NIL),false);
     xml_h  density    = m.child(_U(D),false);
-    double radlen_val = radlen.ptr() ? radlen.attr<double>(_U(value)) : 0.0;
-    double intlen_val = intlen.ptr() ? intlen.attr<double>(_U(value)) : 0.0;
+    double radlen_val = radlen.ptr()  ? radlen.attr<double>(_U(value)) : 0.0;
+    double intlen_val = intlen.ptr()  ? intlen.attr<double>(_U(value)) : 0.0;
     double dens_val   = density.ptr() ? density.attr<double>(_U(value)) : 0.0;
     if ( 0 == mat && !density.ptr() ) {
-      cout << "Compact2Objects[WARNING]: Material:" << matname << " with NO density." << endl;
       has_density = false;
     }
-    if ( mat == 0  ) mat = mix = new TGeoMixture(matname,composites.size(),dens_val);
+
+    printout(DEBUG,"Compact","++ Creating material %s",matname);
+    mat = mix = new TGeoMixture(matname,composites.size(),dens_val);
     mat->SetRadLen(radlen_val,intlen_val);
-    mat_created = true;
-    //cout << "Compact2Objects[INFO]: Creating material:" << matname << " composites:" << composites.size()+fractions.size() << endl;
-  }
-  if ( mat_created ) {
-    if ( mix )  {
-      for(Int_t i=0, n=mix->GetNelements(); i<n; ++i)
-	elts.insert(mix->GetElement(i)->GetName());
-    }
-    for(; composites; ++composites)  {
+    for(composites.reset(); composites; ++composites)  {
       std::string nam = composites.attr<string>(_U(ref));
-      TGeoMaterial*  comp_mat;
-      TGeoElement*   element;
-      if ( elts.find(nam) == elts.end() )  {
-	double fraction = composites.attr<double>(_U(n));
-	if ( 0 != (comp_mat=mgr->GetMaterial(nam.c_str())) ) {
-	  mix->AddElement(comp_mat,fraction);
-	}
-	else if ( 0 != (element=table->FindElement(nam.c_str())) ) {
-	  mix->AddElement(element,fraction);
-	}
-	else  {
-	  string msg = "Compact2Objects[ERROR]: Creating material:"+mname+" Element missing: "+nam;
-	  cout << msg << endl;
-	  throw runtime_error(msg);
-	}
-      }
+      double fraction = composites.attr<double>(_U(n));
+      if ( 0 != (comp_mat=mgr.GetMaterial(nam.c_str())) )
+	mix->AddElement(comp_mat,fraction);
+      else if ( 0 != (comp_elt=table->FindElement(nam.c_str())) )
+	mix->AddElement(comp_elt,fraction);
+      else
+	throw_print("Compact2Objects[ERROR]: Creating material:"+mname+" Element missing: "+nam);
     }
-    for(; fractions; ++fractions)  {
+    for(fractions.reset(); fractions; ++fractions)  {
       std::string nam = fractions.attr<string>(_U(ref));
-      TGeoMaterial*  comp_mat;
-      TGeoElement*   element;
-      if ( elts.find(nam) == elts.end() )  {
-	double fraction = fractions.attr<double>(_U(n));
-	if ( 0 != (comp_mat=mgr->GetMaterial(nam.c_str())) )
-	  mix->AddElement(comp_mat,fraction);
-	else if ( 0 != (element=table->FindElement(nam.c_str())) )
-	  mix->AddElement(element,fraction);
-	else  {
-	  string msg = "Compact2Objects[ERROR]: Creating material:"+mname+" Element missing: "+nam;
-	  cout << msg << endl;
-	  throw runtime_error(msg);
-	}
-      }
+      double fraction = fractions.attr<double>(_U(n));
+      if ( 0 != (comp_mat=mgr.GetMaterial(nam.c_str())) )
+	mix->AddElement(comp_mat,fraction);
+      else if ( 0 != (comp_elt=table->FindElement(nam.c_str())) )
+	mix->AddElement(comp_elt,fraction);
+      else
+	throw_print("Compact2Objects[ERROR]: Creating material:"+mname+" Element missing: "+nam);
     }
     // Update estimated density if not provided.
     if ( !has_density && mix && 0 == mix->GetDensity() ) {
       double dens = 0.0;
       for(composites.reset(); composites; ++composites)  {
 	std::string nam = composites.attr<string>(_U(ref));
-	double fraction = composites.attr<double>(_U(n));
-	TGeoMaterial*  comp_mat = mgr->GetMaterial(nam.c_str());
-	dens += fraction*comp_mat->GetDensity();
+	comp_mat = mgr.GetMaterial(nam.c_str());
+	dens += composites.attr<double>(_U(n)) * comp_mat->GetDensity();
       }
       for(fractions.reset(); fractions; ++fractions)  {
 	std::string nam = fractions.attr<string>(_U(ref));
-	double fraction = fractions.attr<double>(_U(n));
-	TGeoMaterial*  comp_mat = mgr->GetMaterial(nam.c_str());
-	dens += fraction*comp_mat->GetDensity();
+	comp_mat = mgr.GetMaterial(nam.c_str());
+	dens +=  composites.attr<double>(_U(n)) * comp_mat->GetDensity();
       }
-      cout << "Compact2Objects[WARNING]: Material" << matname << " Set density:" << dens << " g/cm**3 " << endl;
+      printout(WARNING,"Compact","++ Material: %s with NO density. "
+	       "Set density to %7.3 g/cm**3",matname,dens);
       mix->SetDensity(dens);
     }
   }
-  TGeoMedium* medium = mgr->GetMedium(matname);
+  TGeoMedium* medium = mgr.GetMedium(matname);
   if ( 0 == medium )  {
     --unique_mat_id;
     medium = new TGeoMedium(matname,unique_mat_id,mat);
     medium->SetTitle("material");
     medium->SetUniqueID(unique_mat_id);
   }
-  lcdd.addMaterial(Ref_t(medium));
-
   // TGeo has no notion of a material "formula"
   // Hence, treat the formula the same way as the material itself
   if ( m.hasAttr(_U(formula)) ) {
     string form = m.attr<string>(_U(formula));
     if ( form != matname ) {
-      LCDD::HandleMap::const_iterator im=lcdd.materials().find(form);
-      if ( im == lcdd.materials().end() ) {
-	medium = mgr->GetMedium(form.c_str());
-	if ( 0 == medium ) {
-	  --unique_mat_id;
-	  medium = new TGeoMedium(form.c_str(),unique_mat_id,mat);
-	  medium->SetTitle("material");
-	  medium->SetUniqueID(unique_mat_id);      
-	}
-	lcdd.addMaterial(Ref_t(medium));
+      medium = mgr.GetMedium(form.c_str());
+      if ( 0 == medium ) {
+	--unique_mat_id;
+	medium = new TGeoMedium(form.c_str(),unique_mat_id,mat);
+	medium->SetTitle("material");
+	medium->SetUniqueID(unique_mat_id);      
       }
     }
   }
@@ -348,8 +348,8 @@ template <> void Converter<Material>::operator()(xml_h e)  const  {
 template <> void Converter<Atom>::operator()(xml_h e)  const  {
   xml_ref_t    elem(e);
   xml_tag_t    eltname  = elem.name();
-  TGeoManager* mgr      = gGeoManager;
-  TGeoElementTable* tab = mgr->GetElementTable();
+  TGeoManager& mgr      = lcdd.manager();
+  TGeoElementTable* tab = mgr.GetElementTable();
   TGeoElement*  element = tab->FindElement(eltname.c_str());
   if ( !element )  {
     xml_ref_t atom(elem.child(_U(atom)));
@@ -359,6 +359,9 @@ template <> void Converter<Atom>::operator()(xml_h e)  const  {
 		    atom.attr<int>(_U(value))
 		    );
     element = tab->FindElement(eltname.c_str());
+    if ( !element ) {
+      throw_print("Failed to properly insert the Element:"+eltname+" into the element table!");
+    }
   }
 }
 
@@ -466,7 +469,7 @@ template <> void Converter<Readout>::operator()(xml_h e)  const {
   if ( seg )  { // Segmentation is not mandatory!
     string type = seg.attr<string>(_U(type));
     Ref_t segment(ROOT::Reflex::PluginService::Create<TNamed*>(type,&lcdd,&seg));
-    if ( !segment.isValid() ) throw runtime_error("FAILED to create segmentation:"+type);
+    if ( !segment.isValid() ) throw_print("FAILED to create segmentation:"+type);
     ro.setSegmentation(segment);
   }
   if ( id )  {
@@ -509,7 +512,7 @@ template <> void Converter<Property>::operator()(xml_h e)  const {
   string name = e.attr<string>(_U(name));
   LCDD::Properties& prp = lcdd.properties();
   if ( name.empty() ) {
-    throw runtime_error("Failed to convert properties. No name given!");
+    throw_print("Failed to convert properties. No name given!");
   }
   vector<xml_attr_t> a = e.attributes();
   if ( prp.find(name) == prp.end() ) {
@@ -538,7 +541,7 @@ template <> void Converter<CartesianField>::operator()(xml_h e)  const  {
     // The field is not present: We create it and add it to LCDD
     field = Ref_t(ROOT::Reflex::PluginService::Create<TNamed*>(type,&lcdd,&e));
     if ( !field.isValid() ) {
-      throw runtime_error("Failed to create field object of type "+type);
+      throw_print("Failed to create field object of type "+type);
     }
     lcdd.addField(field);
     msg = "created";
@@ -560,7 +563,8 @@ template <> void Converter<CartesianField>::operator()(xml_h e)  const  {
       lcdd.field().properties() = prp;
     }
   }
-  cout << "Converted field: Successfully " << msg << " field " << name << " [" << type << "]" << endl;
+  printout(ALWAYS,"Compact","++ Converted field: Successfully %s field %s [%s]",
+	   msg.c_str(),name.c_str(),type.c_str());
 }
 
 /** Update sensitive detectors from group tags.
@@ -599,7 +603,7 @@ template <> void Converter<SensitiveDetector>::operator()(xml_h element)  const 
       string   l  = element.attr<string>(limits);
       LimitSet ls = lcdd.limitSet(l);
       if ( !ls.isValid() )  {
-	throw runtime_error("Converter<SensitiveDetector>: Request for non-existing limitset:"+l);
+	throw_print("Converter<SensitiveDetector>: Request for non-existing limitset:"+l);
       }
       sd.setLimitSet(ls);
     }
@@ -608,7 +612,7 @@ template <> void Converter<SensitiveDetector>::operator()(xml_h element)  const 
       string r   = element.attr<string>(region);
       Region reg = lcdd.region(r);
       if ( !reg.isValid() )  {
-	throw runtime_error("Converter<SensitiveDetector>: Request for non-existing region:"+r);
+	throw_print("Converter<SensitiveDetector>: Request for non-existing region:"+r);
       }
       sd.setRegion(reg);
     }
@@ -625,19 +629,16 @@ template <> void Converter<SensitiveDetector>::operator()(xml_h element)  const 
     else if ( ecut ) { // If no unit is given , we assume the correct Geant4 unit is used!
       sd.setEnergyCutoff(element.attr<double>(ecut));
     }
-    if ( sd.verbose() ) {
-      cout << "SensitiveDetector-update:" << setw(18) << left << sd.name() 
-	   << setw(24)  << left << " ["+sd.type()+"] " 
-	   << "Hits:"   << setw(24) << left << sd.hitsCollection()
-	   << "Cutoff:" << sd.energyCutoff()
-	   << endl;
-    }
+    printout(DEBUG,"Compact","SensitiveDetector-update: %-18s %-24s Hits:%-24s Cutoff:%f7.3f",
+	     sd.name(),(" ["+sd.type()+"]").c_str(),sd.hitsCollection().c_str(),sd.energyCutoff());
   }
   catch(const exception& e) {
-    cout << "FAILED    to convert sensitive detector:" << name << ": " << e.what() << endl;
+    printout(ERROR,"Compact","++ FAILED    to convert sensitive detector: %s: %s",
+	     name.c_str(),e.what());
   }
   catch(...) {
-    cout << "FAILED    to convert sensitive detector:" << name << ": UNKNONW Exception" << endl;
+    printout(ERROR,"Compact","++ FAILED    to convert sensitive detector: %s: %s",
+	     name.c_str(),"UNKNONW Exception");
   }
 }
 
@@ -668,6 +669,9 @@ template <> void Converter<DetElement>::operator()(xml_h element)  const {
     SensitiveDetector sd;
     if ( attr_ro )  {
       Readout ro = lcdd.readout(element.attr<string>(attr_ro));
+      if ( !ro.isValid() )   {
+	throw runtime_error("No Readout structure present for detector:"+name);
+      }
       sd = SensitiveDetector(name,"sensitive");
       sd.setHitsCollection(ro.name());
       sd.setReadout(ro);
@@ -677,21 +681,17 @@ template <> void Converter<DetElement>::operator()(xml_h element)  const {
     DetElement det(Ref_t(ROOT::Reflex::PluginService::Create<TNamed*>(type,&lcdd,&element,&sens)));
     if ( det.isValid() )  {
       setChildTitles(make_pair(name,det));
-      if ( attr_ro )  {
-	det.setReadout(sd.readout());
-      }
     }
-    cout << (det.isValid() ? "Converted" : "FAILED    ")
-	 << " subdetector:" << name << " of type " << type;
-    if ( sd.isValid() ) cout << " [" << sd.type() << "]";
-    cout << endl;
+    printout(det.isValid() ? INFO : ERROR,"Compact","%s sibdetector:%s of type %s %s",
+	     (det.isValid() ? "++ Converted" : "FAILED    "),name.c_str(),type.c_str(),
+	     (sd.isValid() ? ("["+sd.type()+"]").c_str() : ""));
     lcdd.addDetector(det);
   }
   catch(const exception& e) {
-    cout << "FAILED    to convert subdetector:" << name << " of type " << type << ": " << e.what() << endl;
+    printout(ERROR,"Compact","++ FAILED    to convert subdetector: %s: %s",name.c_str(),e.what());
   }
   catch(...) {
-    cout << "FAILED    to convert subdetector:" << name << " of type " << type << ": UNKNONW Exception" << endl;
+    printout(ERROR,"Compact","++ FAILED    to convert subdetector: %s: %s",name.c_str(),"UNKNONW Exception");
   }
 }
   
@@ -727,7 +727,7 @@ template <> void Converter<Compact>::operator()(xml_h element)  const  {
   xml_coll_t(compact,_U(alignments)  ).for_each(_U(alignment),Converter<AlignmentEntry>(lcdd));
   xml_coll_t(compact,_U(fields)      ).for_each(_U(field),    Converter<CartesianField>(lcdd));
   xml_coll_t(compact,_U(sensitive_detectors)).for_each(_U(sd),Converter<SensitiveDetector>(lcdd));
-  ::sprintf(text,"%u",xml_h(element).checksum(0));
+  ::snprintf(text,sizeof(text),"%u",xml_h(element).checksum(0));
   lcdd.addConstant(Constant("compact_checksum",text));
   lcdd.endDocument();
 }

@@ -28,7 +28,7 @@
 #include "UTIL/ILDConf.h"
 
 
-#define DEBUG 1
+#define DEBUG 0
 
 
 //------ helper functions ------------------
@@ -203,6 +203,12 @@ void ILDExEventAction::EndOfEventAction(const G4Event* evt)
 
 	lcio::LCCollectionVec* col = new lcio::LCCollectionVec( lcio::LCIO::SIMCALORIMETERHIT ) ;
 	
+	col->setFlag( UTIL::make_bitset32(  LCIO::CHBIT_LONG, LCIO::CHBIT_STEP ) ); 
+
+#if DEBUG
+       	std::cout << " setting collection flag:  0x" << std::hex << col->getFlag()  << std::dec << std::endl ;
+#endif	
+
 	for(int j=0,N= hCol->GetSize() ; j<N ; ++j) {
 	  
 	  lcio::SimCalorimeterHit* h =  createSimCalorimeterHit(   dynamic_cast<DD4hep::Simulation::Geant4CalorimeterHit*>( hCol->GetHit(j) )  ) ;

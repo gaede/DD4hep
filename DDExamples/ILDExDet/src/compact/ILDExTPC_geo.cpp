@@ -24,14 +24,15 @@ static Ref_t create_element(LCDD& lcdd, xml_h e, SensitiveDetector sens)  {
   string      name  = x_det.nameStr();
   Material    mat    (lcdd.material(x_det.materialStr()));
   //if data is needed do this
-  Value<TNamed,TPCData>* tpcData = new Value<TNamed,TPCData>();
+  TPCData* tpcData = new TPCData();
   DetElement tpc(tpcData, name, x_det.typeStr());
   tpcData->id = x_det.id();
   //else do this
   //DetElement    tpc  (name,x_det.typeStr(),x_det.id());
   Tube        tpc_tub(x_tube.rmin(),x_tube.rmax(),x_tube.zhalf());
   Volume      tpc_vol(name+"_envelope_volume", tpc_tub, mat);
-  
+  Readout     readout(sens.readout());
+
   for(xml_coll_t c(e,_U(detector)); c; ++c)  {
     xml_comp_t  px_det  (c);
     xml_comp_t  px_tube (px_det.child(_U(tubs)));
@@ -47,6 +48,7 @@ static Ref_t create_element(LCDD& lcdd, xml_h e, SensitiveDetector sens)  {
     Rotation    part_rot(px_rot.x(),px_rot.y(),px_rot.z());
     bool        reflect   = px_det.reflect();
     
+    sens.setType("tracker");
     part_vol.setSensitiveDetector(sens);
     part_vol.setVisAttributes(lcdd,px_det.visStr());
     //cache the important volumes in TPCData for later use without having to know their name
@@ -54,12 +56,16 @@ static Ref_t create_element(LCDD& lcdd, xml_h e, SensitiveDetector sens)  {
     {
       case 2:
         tpcData->innerWall=part_det;
+	break;
       case 3:
         tpcData->outerWall=part_det;
+	break;
       case 4:
         tpcData->gasVolume=part_det;
+	break;
       case 5:
         tpcData->cathode=part_det;
+	break;
     }
     //Endplate
     if(part_det.id()== 0){
@@ -91,21 +97,20 @@ static Ref_t create_element(LCDD& lcdd, xml_h e, SensitiveDetector sens)  {
             DetElement  module(part_det,m_nam,mdcount);
             mdcount++;
             double rotz=md*2*M_PI/nmodules+row.modulePitch()/(rmin+(rmax-rmin))/2;
-            PlacedVolume m_phv = part_vol.placeVolume(mr_vol,Position(0,0,0),Rotation(0,0,rotz));
+            PlacedVolume m_phv = part_vol.placeVolume(mr_vol,Rotation(rotz,0,0));
             m_phv.addPhysVolID("module",md);
             module.setPlacement(m_phv);
-            
-            module.setReadout(xml_pads);
             // Readout and placement must be present before adding extension,
             // since they are aquired internally for optimisation reasons. (MF)
-            module.addExtension<PadLayout>(new FixedPadAngleDiskLayout(module));
+            module.addExtension<PadLayout>(new FixedPadAngleDiskLayout(module,readout));
           }//modules
         }//rows
       }//module groups
     }//endplate
     
-    PlacedVolume part_phv = tpc_vol.placeVolume(part_vol,part_pos,part_rot);
-    part_phv.addPhysVolID(part_nam,px_det.id());
+    PlacedVolume part_phv = tpc_vol.placeVolume(part_vol,Transform3D(Rotation3D(part_rot),part_pos));
+    //part_phv.addPhysVolID(part_nam,px_det.id());
+    part_phv.addPhysVolID("side",0);
     part_det.setPlacement(part_phv);
     tpc.add(part_det);
     //now reflect it
@@ -114,18 +119,21 @@ static Ref_t create_element(LCDD& lcdd, xml_h e, SensitiveDetector sens)  {
       //Attention: rotation is given in euler angles
       Rotation r_rot(0,M_PI,M_PI);
       // Volume      part_vol_r(lcdd,part_nam+"_negativ",part_tub,part_mat);
-      PlacedVolume part_phv2 = tpc_vol.placeVolume(part_vol,r_pos,r_rot);
-      part_phv2.addPhysVolID(part_nam+"_negativ",px_det.id()+1);
+      PlacedVolume part_phv2 = tpc_vol.placeVolume(part_vol,Transform3D(Rotation3D(r_rot),r_pos));
+      //part_phv2.addPhysVolID(part_nam+"_negativ",px_det.id()+1);
+      part_phv2.addPhysVolID("side",1);
       // needs a copy function for DetElement
       // DetElement rdet(lcdd,part_nam+"_negativ",px_det.typeStr(),px_det.id()+1);
       DetElement rdet = part_det.clone(part_nam+"_negativ",px_det.id()+1);
       rdet.setPlacement(part_phv2);
-      tpcData->endplate2=rdet;
+      tpcData->endplate2 = rdet;
       tpc.add(rdet);
     }
   }//subdetectors
-  tpc_vol.setVisAttributes(lcdd, x_det.visStr());
+  tpc_vol.setAttributes(lcdd,x_det.regionStr(),x_det.limitsStr(),x_det.visStr());
+  
   PlacedVolume phv = lcdd.pickMotherVolume(tpc).placeVolume(tpc_vol);
+  phv.addPhysVolID("system",x_det.id());
   tpc.setPlacement(phv);
   return tpc;
 }

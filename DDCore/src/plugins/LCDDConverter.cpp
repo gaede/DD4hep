@@ -10,6 +10,7 @@
 // Framework includes
 #include "DD4hep/Volumes.h"
 #include "DD4hep/FieldTypes.h"
+#include "DD4hep/Segmentations.h"
 #include "XML/DocumentHandler.h"
 #include "LCDDConverter.h"
 
@@ -47,15 +48,32 @@
 using namespace DD4hep::Geometry;
 using namespace DD4hep;
 using namespace std;
-
 namespace {
   typedef Position XYZRotation;
+#if 0
   XYZRotation getXYZangles(const Double_t* r)   {
     Double_t cosb = sqrt(r[0]*r[0] + r[1]*r[1]);
     if (cosb > 0.00001) {
       return XYZRotation(atan2(r[5], r[8]), atan2(-r[2], cosb), atan2(r[1], r[0]));
     }
     return XYZRotation(atan2(-r[7], r[4]),atan2(-r[2], cosb),0);
+  }
+#endif
+  XYZRotation getXYZangles(const Double_t* rotationMatrix)   {
+    Double_t a, b, c;
+    Double_t rad = 1.0;// RAD by default! 180.0 / TMath::ACos(-1.0);
+    const Double_t *r = rotationMatrix;
+    Double_t cosb = TMath::Sqrt(r[0] * r[0] + r[1] * r[1]);
+    if (cosb > 0.00001) {
+      a = TMath::ATan2(r[5], r[8]) * rad;
+      b = TMath::ATan2(-r[2], cosb) * rad;
+      c = TMath::ATan2(r[1], r[0]) * rad;
+    } else {
+      a = TMath::ATan2(-r[7], r[4]) * rad;
+      b = TMath::ATan2(-r[2], cosb) * rad;
+      c = 0;
+    }
+    return XYZRotation(a,b,c);
   }
 }
 
@@ -71,7 +89,6 @@ void LCDDConverter::GeometryInfo::check(const string& name, const TNamed* n,map<
 
 /// Initializing Constructor
 LCDDConverter::LCDDConverter( LCDD& lcdd ) : m_lcdd(lcdd), m_dataPtr(0) {
-  m_checkOverlaps = true;
 }
 
 LCDDConverter::~LCDDConverter()   {
@@ -118,9 +135,10 @@ xml_h LCDDConverter::handleMaterial(const string& name, const TGeoMedium* medium
       cout << "Converting material:" << name << endl;
     }
     if ( m->IsMixture() ) {
-      TGeoMixture* mix=(TGeoMixture*)m;
+      TGeoMixture  *mix  = (TGeoMixture*)m;
       const double *wmix = mix->GetWmixt();
-      double sum = 0e0;
+      const int    *nmix = mix->GetNmixt();
+      double        sum  = 0e0;
       for (int i=0, n=mix->GetNelements(); i < n; i++) {
 	TGeoElement *elt = mix->GetElement(i);
 	handleElement(elt->GetName(),elt);
@@ -129,8 +147,14 @@ xml_h LCDDConverter::handleMaterial(const string& name, const TGeoMedium* medium
       for (int i=0, n=mix->GetNelements(); i < n; i++) {
 	TGeoElement *elt = mix->GetElement(i);
 	string formula = elt->GetTitle()+string("_elm");
-	mat.append(obj=xml_elt_t(geo.doc,_U(fraction)));
-	obj.setAttr(_U(n),wmix[i]/sum);
+	if ( nmix )  {
+	  mat.append(obj=xml_elt_t(geo.doc,_U(composite)));
+	  obj.setAttr(_U(n),nmix[i]);
+	}
+	else  {
+	  mat.append(obj=xml_elt_t(geo.doc,_U(fraction)));
+	  obj.setAttr(_U(n),wmix[i]/sum);
+	}
 	obj.setAttr(_U(ref),elt->GetName());
       }
     }
@@ -154,8 +178,22 @@ xml_h LCDDConverter::handleMaterial(const string& name, const TGeoMedium* medium
 /// Dump solid in GDML format to output stream
 xml_h LCDDConverter::handleSolid(const string& name, const TGeoShape* shape)   const   {
   GeometryInfo& geo = data();
-  xml_h solid(geo.xmlSolids[shape]);
-  if ( !solid && shape ) {
+  SolidMap::iterator sit = geo.xmlSolids.find(shape);
+  if ( !shape )  {
+    // This is an invalid volume. Let's pray returning nothing will work,
+    // and the non-existing solid is also nowhere referenced in the GDML.
+    return xml_h(0);
+  }
+  else if ( sit != geo.xmlSolids.end() ) {
+    // The solidis already registered. Return the reference
+    return (*sit).second;
+  }
+  else if ( shape->IsA() == TGeoShapeAssembly::Class() )  {
+    // Assemblies have no shape in GDML. Hence, return nothing.
+    return xml_h(0);
+  }
+  else   {
+    xml_h solid(0);
     xml_h zplane(0);
     geo.checkShape(name,shape);
     if ( shape->IsA() == TGeoBBox::Class() ) {
@@ -302,15 +340,27 @@ xml_h LCDDConverter::handleSolid(const string& name, const TGeoShape* shape)   c
       const TGeoConeSeg* s = (const TGeoConeSeg*)shape;
       geo.doc_solids.append(solid = xml_elt_t(geo.doc,_U(polycone)));
       solid.setAttr(_U(name),Unicode(name));
+      solid.setAttr(_U(startphi), s->GetPhi1()*DEGREE_2_RAD);
+      solid.setAttr(_U(deltaphi),(s->GetPhi2()-s->GetPhi1())*DEGREE_2_RAD);
+      solid.setAttr(_U(aunit),"rad");
+      solid.setAttr(_U(lunit),"mm");
+      xml_elt_t zplane = xml_elt_t(geo.doc,_U(zplane));
+      zplane.setAttr(_U(rmin),    s->GetRmin1()*CM_2_MM);
+      zplane.setAttr(_U(rmax),    s->GetRmax1()*CM_2_MM);
+      zplane.setAttr(_U(z),     -s->GetDz()*CM_2_MM);
+      solid.append(zplane);
+      zplane = xml_elt_t(geo.doc,_U(zplane));
+      zplane.setAttr(_U(rmin),    s->GetRmin2()*CM_2_MM);
+      zplane.setAttr(_U(rmax),    s->GetRmax2()*CM_2_MM);
+      zplane.setAttr(_U(z),      s->GetDz()*CM_2_MM);
+      solid.append(zplane);
+#if 0
       solid.setAttr(_U(z),        2*s->GetDz()*CM_2_MM);
       solid.setAttr(_U(rmin1),    s->GetRmin1()*CM_2_MM);
       solid.setAttr(_U(rmin2),    s->GetRmin2()*CM_2_MM);
       solid.setAttr(_U(rmax1),    s->GetRmax1()*CM_2_MM);
       solid.setAttr(_U(rmax2),    s->GetRmax2()*CM_2_MM);
-      solid.setAttr(_U(startphi), s->GetPhi1()*DEGREE_2_RAD);
-      solid.setAttr(_U(deltaphi),(s->GetPhi2()-s->GetPhi1())*DEGREE_2_RAD);
-      solid.setAttr(_U(aunit),"rad");
-      solid.setAttr(_U(lunit),"mm");
+#endif
     }
     else if ( shape->IsA() == TGeoCone::Class() ) {
       const TGeoCone* s = (const TGeoCone*)shape;
@@ -384,11 +434,6 @@ xml_h LCDDConverter::handleSolid(const string& name, const TGeoShape* shape)   c
       solid.setAttr(_U(dz), s->GetDz()*CM_2_MM);
       solid.setAttr(_U(lunit),"mm");
     }
-    else if ( shape->IsA() == TGeoShapeAssembly::Class() )  {
-      TGeoShapeAssembly* s = (TGeoShapeAssembly*)shape;
-      geo.doc_solids.append(solid = xml_elt_t(geo.doc,_U(assembly)));
-      solid.setAttr(_U(name),Unicode(name));
-    }
     else if ( shape->IsA() == TGeoCompositeShape::Class() ) {
       char text[32];
       const TGeoCompositeShape* s = (const TGeoCompositeShape*)shape;
@@ -402,10 +447,10 @@ xml_h LCDDConverter::handleSolid(const string& name, const TGeoShape* shape)   c
       xml_h    right = handleSolid(rs->GetName(),rs);
       xml_h first(0), second(0);
       if ( !left )   {
-	throw runtime_error("G4Converter: No left Geant4 Solid present for composite shape:"+name);
+	throw runtime_error("G4Converter: No left LCDD Solid present for composite shape:"+name);
       }
       if ( !right )   {
-	throw runtime_error("G4Converter: No right Geant4 Solid present for composite shape:"+name);
+	throw runtime_error("G4Converter: No right LCDD Solid present for composite shape:"+name);
       }
 
       if (      oper == TGeoBoolNode::kGeoSubtraction )
@@ -420,36 +465,44 @@ xml_h LCDDConverter::handleSolid(const string& name, const TGeoShape* shape)   c
       solid.append(first=xml_elt_t(geo.doc,_U(first)));
       solid.setAttr(_U(name),Unicode(name));
       first.setAttr(_U(ref),ls->GetName());
-      XYZRotation    rot = getXYZangles(lm->Inverse().GetRotationMatrix());
       const double  *tr  = lm->GetTranslation();
-
+      double phi=0., theta=0., psi=0.;
+      
       if ((tr[0] != 0.0) || (tr[1] != 0.0) || (tr[2] != 0.0)) {
 	first.append(obj=xml_elt_t(geo.doc,_U(firstposition)));
 	obj.setAttr(_U(x),tr[0]*CM_2_MM);
 	obj.setAttr(_U(y),tr[1]*CM_2_MM);
 	obj.setAttr(_U(z),tr[2]*CM_2_MM);
       }
-      if ((rot.X() != 0.0) || (rot.Y() != 0.0) || (rot.Z() != 0.0)) {
-	first.append(obj=xml_elt_t(geo.doc,_U(firstrotation)));
-	obj.setAttr(_U(x),rot.X()*DEGREE_2_RAD);
-	obj.setAttr(_U(y),rot.Y()*DEGREE_2_RAD);
-	obj.setAttr(_U(z),rot.Z()*DEGREE_2_RAD);
+      if ( lm->IsRotation() )  {
+	TGeoMatrix& linv = lm->Inverse();
+	XYZRotation rot = getXYZangles(linv.GetRotationMatrix());
+	if ((rot.X() != 0.0) || (rot.Y() != 0.0) || (rot.Z() != 0.0)) {
+	  first.append(obj=xml_elt_t(geo.doc,_U(firstrotation)));
+	  obj.setAttr(_U(name),name);
+	  obj.setAttr(_U(x),rot.X());
+	  obj.setAttr(_U(y),rot.Y());
+	  obj.setAttr(_U(z),rot.Z());
+	  obj.setAttr(_U(unit),"rad");
+	}
       }
-      TGeoMatrix& rinv = rm->Inverse();
-      rot = getXYZangles(rinv.GetRotationMatrix());
       tr  = rm->GetTranslation();
       solid.append(second=xml_elt_t(geo.doc,_U(second)));
       second.setAttr(_U(ref),rs->GetName());
-      ::sprintf(text,"_%p_",rm);
+      ::snprintf(text,sizeof(text),"_%p_",rm);
       string rnam = rs->GetName();
       rnam += text;
       if ((tr[0] != 0.0) || (tr[1] != 0.0) || (tr[2] != 0.0)) {
 	xml_ref_t pos = handlePosition(rnam+"pos",rm);
 	solid.setRef(_U(positionref),pos.name());
       }
-      if ((rot.X() != 0.0) || (rot.Y() != 0.0) || (rot.Z() != 0.0)) {
-	xml_ref_t rot = handleRotation(rnam+"rot",&rinv);
-	solid.setRef(_U(rotationref),rot.name());
+      if ( rm->IsRotation() )  {
+	TGeoMatrix& rinv = rm->Inverse();
+	XYZRotation rot = getXYZangles(rinv.GetRotationMatrix());
+	if ((rot.X() != 0.0) || (rot.Y() != 0.0) || (rot.Z() != 0.0)) {
+	  xml_ref_t rot = handleRotation(rnam+"rot",&rinv);
+	  solid.setRef(_U(rotationref),rot.name());
+	}
       }
     }
     if ( !solid ) {
@@ -457,9 +510,8 @@ xml_h LCDDConverter::handleSolid(const string& name, const TGeoShape* shape)   c
 	name + " of type " + string(shape->IsA()->GetName());
       throw runtime_error(err);
     }
-    data().xmlSolids[shape] = solid;
+    return data().xmlSolids[shape] = solid;
   }
-  return solid;
 }
 
 /// Convert the Position into the corresponding Xml object(s).
@@ -499,7 +551,7 @@ xml_h LCDDConverter::handleRotation(const std::string& name, const TGeoMatrix* t
   xml_h rot = geo.xmlRotations[trafo];
   if ( !rot ) {
     XYZRotation r = getXYZangles(trafo->GetRotationMatrix());
-    if ( r.X() != 0.0 || r.Y() != 0.0 || r.Z() != 0.0 )  {
+    if ( !(r.X() == 0.0 && r.Y() == 0.0 && r.Z() == 0.0) )  {
       geo.checkRotation(name,trafo);
       geo.doc_define.append(rot=xml_elt_t(geo.doc,_U(rotation)));
       rot.setAttr(_U(name),name);
@@ -538,20 +590,27 @@ xml_h LCDDConverter::handleVolume(const string& name, const TGeoVolume* volume) 
     TGeoShape*        s   = v->GetShape();
     xml_ref_t         sol = handleSolid(s->GetName(),s);
 
-    if ( !sol )
-      throw runtime_error("G4Converter: No Geant4 Solid present for volume:"+n);
-    else if ( !m && v->IsA() != TGeoVolumeAssembly::Class() )
-      throw runtime_error("G4Converter: No Geant4 material present for volume:"+n);
-
     geo.checkVolume(name,volume);
-    geo.doc_structure.append(vol=xml_elt_t(geo.doc,_U(volume)));
-    vol.setAttr(_U(name),n);
-    if ( m )   {
-      string mat_name = m->GetName();
-      xml_ref_t med = handleMaterial(mat_name,m);
-      vol.setRef(_U(materialref),med.name());
+    if ( v->IsAssembly() )   {
+      vol=xml_elt_t(geo.doc,_U(assembly));
+      vol.setAttr(_U(name),n);
     }
-    vol.setRef(_U(solidref),sol.name());
+    else  {
+      if ( !sol )
+	throw runtime_error("G4Converter: No LCDD Solid present for volume:"+n);
+      else if ( !m )
+	throw runtime_error("G4Converter: No LCDD material present for volume:"+n);
+      
+      vol=xml_elt_t(geo.doc,_U(volume));
+      vol.setAttr(_U(name),n);
+      if ( m )   {
+	string mat_name = m->GetName();
+	xml_ref_t med = handleMaterial(mat_name,m);
+	vol.setRef(_U(materialref),med.name());
+      }
+      vol.setRef(_U(solidref),sol.name());
+    }
+    geo.doc_structure.append(vol);
     geo.xmlVolumes[v] = vol;
     const TObjArray*  dau = ((TGeoVolume*)v)->GetNodes();
     if ( dau && dau->GetEntries() > 0 ) {
@@ -662,21 +721,23 @@ xml_h LCDDConverter::handlePlacement(const string& name, const TGeoNode* node) c
     place.setRef(_U(volumeref),vol.name());
     if ( m )  {
       char text[32];
-      ::sprintf(text,"_%p_pos",node);
+      ::snprintf(text,sizeof(text),"_%p_pos",node);
       xml_ref_t pos = handlePosition(name+text,m);
-      ::sprintf(text,"_%p_rot",node);
+      ::snprintf(text,sizeof(text),"_%p_rot",node);
       xml_ref_t rot = handleRotation(name+text,m);
       place.setRef(_U(positionref),pos.name());
       place.setRef(_U(rotationref),rot.name());
     }
-    if ( dynamic_cast<const PlacedVolume::Object*>(node) ) {
-      PlacedVolume p = Ref_t(node);
-      const PlacedVolume::VolIDs& ids = p.volIDs();
-      for(PlacedVolume::VolIDs::const_iterator i=ids.begin(); i!=ids.end(); ++i) {
-	xml_h pvid = xml_elt_t(geo.doc,_U(physvolid));
-	pvid.setAttr(_U(field_name),(*i).first);
-	pvid.setAttr(_U(value),(*i).second);
-	place.append(pvid);
+    if ( geo.doc_root.tag() != "gdml" )  {
+      if ( dynamic_cast<const PlacedVolume::Object*>(node) ) {
+	PlacedVolume p = Ref_t(node);
+	const PlacedVolume::VolIDs& ids = p.volIDs();
+	for(PlacedVolume::VolIDs::const_iterator i=ids.begin(); i!=ids.end(); ++i) {
+	  xml_h pvid = xml_elt_t(geo.doc,_U(physvolid));
+	  pvid.setAttr(_U(field_name),(*i).first);
+	  pvid.setAttr(_U(value),(*i).second);
+	  place.append(pvid);
+	}
       }
     }
     geo.xmlPlacements[node] = place;
@@ -687,7 +748,7 @@ xml_h LCDDConverter::handlePlacement(const string& name, const TGeoNode* node) c
   return place;
 }
 
-/// Convert the geometry type region into the corresponding Geant4 object(s).
+/// Convert the geometry type region into the corresponding LCDD object(s).
 xml_h LCDDConverter::handleRegion(const std::string& name, const TNamed* region)   const  {
   GeometryInfo& geo = data();  
   xml_h reg = geo.xmlRegions[region];
@@ -704,7 +765,7 @@ xml_h LCDDConverter::handleRegion(const std::string& name, const TNamed* region)
   return reg;
 }
 
-/// Convert the geometry type LimitSet into the corresponding Geant4 object(s)
+/// Convert the geometry type LimitSet into the corresponding LCDD object(s)
 xml_h LCDDConverter::handleLimitSet(const std::string& name, const TNamed* limitset)    const  {
   GeometryInfo& geo = data();  
   xml_h xml = geo.xmlLimits[limitset];
@@ -712,8 +773,8 @@ xml_h LCDDConverter::handleLimitSet(const std::string& name, const TNamed* limit
     LimitSet lim = Ref_t(limitset);
     geo.doc_limits.append(xml=xml_elt_t(geo.doc,_U(limitset)));
     xml.setAttr(_U(name),lim.name());
-    const LimitSet::Object& obj = lim.limits();
-    for(LimitSet::Object::const_iterator i=obj.begin(); i!=obj.end(); ++i) {
+    const set<Limit>& obj = lim.limits();
+    for(set<Limit>::const_iterator i=obj.begin(); i!=obj.end(); ++i) {
       xml_h x = xml_elt_t(geo.doc,_U(limit));
       const Limit& l = *i;
       xml.append(x);
@@ -727,14 +788,39 @@ xml_h LCDDConverter::handleLimitSet(const std::string& name, const TNamed* limit
   return xml;
 }
 
-/// Convert the geometry type SensitiveDetector into the corresponding Geant4 object(s).
+/// Convert the segmentation of a SensitiveDetector into the corresponding LCDD object
+xml_h  LCDDConverter::handleSegmentation(Segmentation seg)  const  {
+  xml_h xml;
+  if ( seg.isValid() )  {
+    typedef SegmentationParams::Parameters _P;
+    string typ = seg.type();
+    SegmentationParams par(seg);
+    _P p = par.parameters();
+    xml = xml_elt_t(data().doc,Unicode(typ));
+    for(_P::const_iterator i=p.begin(); i != p.end(); ++i)  {
+      const _P::value_type& v=*i;
+      if ( v.first == "lunit" )  {
+	string val = v.second == _toDouble("mm") ? "mm" : 
+	  v.second == _toDouble("cm") ? "cm" : 
+	  v.second == _toDouble("m")  ? "m"  : 
+	  v.second == _toDouble("micron") ? "micron" : 
+	  v.second == _toDouble("nanometer") ? "namometer" : "??";
+	xml.setAttr(Unicode(v.first),Unicode(val));
+	continue;
+      }
+      xml.setAttr(Unicode(v.first),v.second);
+    }
+  }
+  return xml;
+}
+
+/// Convert the geometry type SensitiveDetector into the corresponding LCDD object(s).
 xml_h LCDDConverter::handleSensitive(const string& name, const TNamed* sens_det)   const  {
   GeometryInfo& geo = data();
   xml_h sensdet = geo.xmlSensDets[sens_det];
   if ( !sensdet )   {
     SensitiveDetector sd = Ref_t(sens_det);
-    string type = sd.type(), name = sd.name();
-    geo.doc_detectors.append(sensdet = xml_elt_t(geo.doc,Unicode(type)));
+    geo.doc_detectors.append(sensdet = xml_elt_t(geo.doc,Unicode(sd.type())));
     sensdet.setAttr(_U(name),sd.name());
     sensdet.setAttr(_U(ecut),sd.energyCutoff());
     sensdet.setAttr(_U(eunit),"MeV");
@@ -745,6 +831,8 @@ xml_h LCDDConverter::handleSensitive(const string& name, const TNamed* sens_det)
     if ( ro.isValid() ) {
       xml_ref_t ref = handleIdSpec(ro.idSpec().name(),ro.idSpec().ptr());
       sensdet.setRef(_U(idspecref),ref.name());
+      xml_h seg = handleSegmentation(ro.segmentation());
+      if ( seg ) sensdet.append(seg);
     }
     geo.xmlSensDets[sens_det] = sensdet;
   }
@@ -778,7 +866,7 @@ xml_h LCDDConverter::handleIdSpec(const std::string& name, const TNamed* id_spec
   return id;
 }
 
-/// Convert the geometry visualisation attributes to the corresponding Geant4 object(s).
+/// Convert the geometry visualisation attributes to the corresponding LCDD object(s).
 xml_h LCDDConverter::handleVis(const string& name, const TNamed* v) const  {
   GeometryInfo& geo = data();
   xml_h vis = geo.xmlVis[v];
@@ -848,9 +936,9 @@ void LCDDConverter::handleProperties(LCDD::Properties& prp)   const {
 	id= (*id_it).second;
       }
       else {
-	char txt[32];
-	::sprintf(txt,"%d",++s_idd);
-	id = txt;
+	char text[32];
+	::snprintf(text,sizeof(text),"%d",++s_idd);
+	id = text;
       }
       processors.insert(make_pair(id,nam));
     }
@@ -870,7 +958,7 @@ void LCDDConverter::handleProperties(LCDD::Properties& prp)   const {
     if ( result != 1 ) {
       throw runtime_error("Failed to invoke the plugin "+tag+" of type "+type);
     }
-    cout << "+++++ Executed Successfully Geant4 setup module *" << type << "* ." << endl;
+    cout << "+++++ Executed Successfully LCDD setup module *" << type << "* ." << endl;
   }
 }
 
@@ -917,10 +1005,9 @@ xml_doc_t LCDDConverter::createGDML(DetElement top) {
   }
   GeometryInfo& geo = *(m_dataPtr=new GeometryInfo);
   m_data->clear();
-
   collect(top,geo);
-  m_checkOverlaps = false;
 
+  cout << "++ ==> Converting in memory detector description to GDML format..." << endl;
   const char* comment = "\n"
     "      +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"
     "      ++++   Linear collider detector description GDML in C++  ++++\n"
@@ -949,7 +1036,7 @@ xml_doc_t LCDDConverter::createGDML(DetElement top) {
   geo.doc_setup.setAttr(_U(name),Unicode("Default"));
   geo.doc_setup.setAttr(_U(version),Unicode("1.0"));
 
-  // Ensure that all required materials are present in the Geant4 material table
+  // Ensure that all required materials are present in the LCDD material table
 #if 0
   const LCDD::HandleMap& mat = lcdd.materials();
   for(LCDD::HandleMap::const_iterator i=mat.begin(); i!=mat.end(); ++i)
@@ -985,8 +1072,7 @@ xml_doc_t LCDDConverter::createVis(DetElement top) {
   GeometryInfo& geo = *(m_dataPtr=new GeometryInfo);
   m_data->clear();
   collect(top,geo);
-  m_checkOverlaps = false;
-
+  cout << "++ ==> Dump visualisation attributes from in memory detector description..." << endl;
   const char comment[] = "\n"
     "      +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"
     "      ++++   Linear collider detector description LCDD in C++  ++++\n"
@@ -1019,8 +1105,6 @@ xml_doc_t LCDDConverter::createLCDD(DetElement top) {
   GeometryInfo& geo = *(m_dataPtr=new GeometryInfo);
   m_data->clear();
   collect(top,geo);
-  m_checkOverlaps = false;
-
   const char comment[] = "\n"
     "      +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"
     "      ++++   Linear collider detector description LCDD in C++  ++++\n"
@@ -1058,16 +1142,12 @@ xml_doc_t LCDDConverter::createLCDD(DetElement top) {
   geo.doc_setup.setAttr(_U(name),Unicode("Default"));
   geo.doc_setup.setAttr(_U(version),Unicode("1.0"));
 
-  // Ensure that all required materials are present in the Geant4 material table
-#if 0
-  const LCDD::HandleMap& mat = lcdd.materials();
-  for(LCDD::HandleMap::const_iterator i=mat.begin(); i!=mat.end(); ++i)
-    geo.materials.insert(dynamic_cast<TGeoMedium*>((*i).second.ptr()));
-#endif
+  // Ensure that all required materials are present in the LCDD material table
   const LCDD::HandleMap& fld = lcdd.fields();
   for(LCDD::HandleMap::const_iterator i=fld.begin(); i!=fld.end(); ++i)
     geo.fields.insert((*i).second.ptr());
 
+  cout << "++ ==> Converting in memory detector description to LCDD format..." << endl;
   handleHeader();
   // Start creating the objects for materials, solids and log volumes.
   handle(this, geo.materials, &LCDDConverter::handleMaterial);

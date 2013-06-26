@@ -18,15 +18,15 @@ using namespace DD4hep;
 using namespace DD4hep::Geometry;
 
 static Ref_t create_element(LCDD& lcdd, xml_h e, SensitiveDetector sens)  {
-  DetElement  vxd;
-  xml_det_t   x_det = e;
-  string      name  = x_det.nameStr();
+  DetElement   vxd;
+  xml_det_t    x_det = e;
+  string       name  = x_det.nameStr();
+  Assembly     assembly(name+"_assembly");
+  PlacedVolume pv;
 
-  Value<TNamed,VXDData>* vxd_data = new Value<TNamed,VXDData>();
+  VXDData* vxd_data = new VXDData();
   vxd.assign(vxd_data,name,x_det.typeStr());
   vxd_data->id = x_det.id();
-
-  Volume      mother = lcdd.pickMotherVolume(vxd);    
 
   // setup the encoder
   UTIL::BitField64 encoder( ILDCellID0::encoder_string ) ;
@@ -76,8 +76,10 @@ static Ref_t create_element(LCDD& lcdd, xml_h e, SensitiveDetector sens)  {
     Position    senspos   (-(sens_thick+supp_thick)/2.+sens_thick/2.,0,0);
     Position    supppos   (-(sens_thick+supp_thick)/2.+sens_thick+supp_thick/2.,0,0);
       
-    sensvol.setVisAttributes(lcdd.visAttributes(x_layer.visStr()));
+    sens.setType("tracker");
     sensvol.setSensitiveDetector(sens);
+    sensvol.setAttributes(lcdd,x_det.regionStr(),x_det.limitsStr(),x_layer.visStr());
+
     laddervol.placeVolume(sensvol,senspos);
     laddervol.placeVolume(suppvol,supppos);
 
@@ -106,6 +108,11 @@ static Ref_t create_element(LCDD& lcdd, xml_h e, SensitiveDetector sens)  {
 
     encoder[ILDCellID0::layer]  = layer_id ; 
 
+
+    // Assembly layer_assembly( name + _toString( layer_id,"layer_assembly_%d" ) ) ;
+    // PlacedVolume layer_physvol = assembly.placeVolume( layer_assembly,IdentityPos() ) ;
+    // layer_physvol.addPhysVolID("layer", layer_id );
+
     for(int j=0; j<nLadders; ++j) {
 
       double dj = double(j);      
@@ -132,11 +139,24 @@ static Ref_t create_element(LCDD& lcdd, xml_h e, SensitiveDetector sens)  {
       encoder[ILDCellID0::module]  = j  ;
       int cellID0 = encoder.lowWord() ;
 
-      mother.placeVolume(laddervol,pos, rot   ).addPhysVolID("CellID0", cellID0 )  ;
+       // lcdd.pickMotherVolume(vxd).placeVolume(laddervol,pos, rot   ).addPhysVolID("CellID0", cellID0 )  ;
+
+      pv = assembly.placeVolume( laddervol,Transform3D(RotationZ(phi),pos));
+      pv.addPhysVolID("layer", layer_id ).addPhysVolID( "module" , j ) ;
+
+	//.addPhysVolID("CellID0", cellID0 )   ;
+
+      //pv = assembly.placeVolume( sensvol, pos, rot ) ;
+
     }
-    
     vxd.setVisAttributes(lcdd, x_det.visStr(),laddervol);
   }
+  Volume mother =  lcdd.pickMotherVolume(vxd) ;
+
+  pv = mother.placeVolume(assembly);
+  pv.addPhysVolID( "system", x_det.id() ) ;
+  
+  vxd.setPlacement(pv);
   return vxd;
 }
 

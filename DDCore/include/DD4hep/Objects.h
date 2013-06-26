@@ -24,15 +24,19 @@ class TGeoIdentity;
 #include "TGeoPhysicalNode.h"
 #include "Math/Vector3D.h"
 #include "Math/Transform3D.h"
+#include "Math/Translation3D.h"
 #include "Math/RotationX.h"
 #include "Math/RotationY.h"
 #include "Math/RotationZ.h"
+#include "Math/Rotation3D.h"
 #include "Math/RotationZYX.h"
+#include "Math/EulerAngles.h"
 #include "Math/VectorUtil.h"
 
 // C/C++ include files
 #include <set>
 #include <limits>
+#include <vector>
 
 #define _USE_MATH_DEFINES
 #include <cmath>
@@ -65,32 +69,51 @@ namespace DD4hep {
      *  @version 1.0
      */
     struct Author : public Ref_t  {
+      /// Definition of the implementation type
+      typedef TNamed Object;
       /// Default constructor
       Author() : Ref_t() {}
+      /// Constructorto be used for assignment from a handle
+      Author(const Author& e) : Ref_t(e) {}
       /// Constructor to be used when reading the already parsed DOM tree
       template <typename Q> 
       Author(const Handle<Q>& e) : Ref_t(e)  {}
       /// Constructor to be used when creating a new DOM tree
       Author(LCDD& doc);
-      //void setAuthorName(const char* nam)    {  setAttr("name",nam); }
-      //void setAuthorEmail(const char* addr)  {  setAttr("email",addr); }
+      /// Access the auhor's name
+      std::string authorName() const;
+      /// Set the author's name
+      void setAuthorName(const std::string& nam);
+      /// Access the auhor's email address
+      std::string authorEmail() const;
+      /// Set the author's email address
+      void setAuthorEmail(const std::string& addr);
     };
+
 
     /** @class Header Objects.h
      *  
+     *  Description of the geometry header. Containes useful auxiliary information.
+     *
      *  @author  M.Frank
      *  @version 1.0
      */
     struct Header : public Ref_t  {
-      struct Object {
+      struct Object : public TNamed {
 	std::string url;
 	std::string author;
 	std::string status;
 	std::string version;
 	std::string comment;
+	/// Standard constructor
+	Object();
+	/// Default destructor
+	virtual ~Object();	
       };
       /// Default constructor
       Header() : Ref_t() {}
+      /// Constructorto be used for assignment from a handle
+      Header(const Header& e) : Ref_t(e) {}
       /// Constructor to be used when reading the already parsed DOM tree
       template <typename Q> Header(const Handle<Q>& e) : Ref_t(e)  {}
       /// Constructor to be used when creating a new DOM tree
@@ -131,8 +154,12 @@ namespace DD4hep {
      *  @version 1.0
      */
     struct Constant : public Ref_t  {
+      /// Definition of the implementation type
+      typedef TNamed Object;
       /// Default constructor
       Constant() : Ref_t() {}
+      /// Constructorto be used for assignment from a handle
+      Constant(const Constant& e) : Ref_t(e) {}
       /// Constructor to be used when reading the already parsed DOM tree
       template <typename Q> 
       Constant(const Handle<Q>& e) : Ref_t(e)  {}
@@ -149,69 +176,28 @@ namespace DD4hep {
     template <class V> V RotateY(const V& v, double a) { return ROOT::Math::VectorUtil::RotateY(v,a); }
     template <class V> V RotateZ(const V& v, double a) { return ROOT::Math::VectorUtil::RotateZ(v,a); }
   
-    typedef ROOT::Math::RotationZYX  Rotation;
-    typedef ROOT::Math::RotationZ    RotationZ;
-    typedef ROOT::Math::RotationY    RotationY;
-    typedef ROOT::Math::RotationX    RotationX;
-    typedef ROOT::Math::Transform3D  Transform3D;
+    typedef ROOT::Math::RotationZYX   Rotation;
+    typedef ROOT::Math::RotationZ     RotationZ;
+    typedef ROOT::Math::RotationY     RotationY;
+    typedef ROOT::Math::RotationX     RotationX;
+    typedef ROOT::Math::Rotation3D    Rotation3D;
+    typedef ROOT::Math::EulerAngles   EulerAngles;
+    typedef ROOT::Math::Transform3D   Transform3D;
+    typedef ROOT::Math::Translation3D Translation3D;
 
-    /** @class IdentityPos Objects.h
-     *  
-     *  @author  M.Frank
-     *  @version 1.0
-     */
-    struct IdentityPos {
-      /// Default constructor
-      IdentityPos() {}
-    };
-
-    /** @class IdentityRot Objects.h
-     *  
-     *  @author  M.Frank
-     *  @version 1.0
-     */
-    struct IdentityRot {
-      /// Default constructor
-      IdentityRot() {}
-    };
-
-    /** @class ReflectRot Objects.h
-     *  
-     *  @author  M.Frank
-     *  @version 1.0
-     */
-    struct ReflectRot : public Rotation {
-      /// Default constructor
-      ReflectRot() : Rotation(M_PI,0.,0.) {}
-    };
-#if 0
-    /** @class Transformation Objects.h
-     *  
-     *  @author  M.Frank
-     *  @version 1.0
-     */
-    struct Transform : public Handle<TGeoMatrix> {
-      /// Default constructor
-      Transform() : Handle<TGeoMatrix>() {}
-      /// Default constructor
-      Transform(TGeoMatrix* m) : Handle<TGeoMatrix>(m) {}
-      /// Constructor to be used when reading the already parsed DOM tree
-      template <typename Q> 
-      Transform(const Handle<Q>& e) : Handle<TGeoMatrix>(e) {}
-      /// Constructor to be used when creating a new DOM tree. Automatically sets attributes
-      Transform(LCDD& doc, const std::string& name);
-    };
-
-#endif
     /** @class Atom Objects.h
      *  
      *  @author  M.Frank
      *  @version 1.0
      */
     struct Atom : public Handle<TGeoElement>  {
+      /// Definition of the implementation type
+      typedef TGeoElement Object;
       /// Default constructor
       Atom() : Handle<TGeoElement>() {}
-      /// Constructor to be used when creating a new DOM tree
+      /// Constructorto be used for assignment from a handle
+      Atom(const Handle<TGeoElement>& e) : Handle<TGeoElement>(e) {}
+      /// Constructor to be used when creating from a object handle
       template <typename Q> 
       Atom(const Handle<Q>& e) : Handle<TGeoElement>(e) {}
       /// Constructor to be used when reading the already parsed DOM tree
@@ -224,13 +210,15 @@ namespace DD4hep {
      *  @version 1.0
      */
     struct Material : public Handle<TGeoMedium>  {
+      /// Definition of the implementation type
+      typedef TGeoMedium Object;
       /// Default constructor
       Material() : Handle<TGeoMedium>() {}
-      /// Constructor to be used when creating a new DOM tree
+      /// Constructorto be used for assignment from material handle
+      Material(const Handle<TGeoMedium>& e) : Handle<TGeoMedium>(e) {}
+      /// Constructorto be used for assignment from object handle
       template <typename Q> 
       Material(const Handle<Q>& e) : Handle<TGeoMedium>(e) {}
-      /// Constructor to be used when reading the already parsed DOM tree
-      Material(const std::string& name);
       /// String representation of this object
       std::string toString()  const;
       /// Access the radiation length of the undrelying material
@@ -249,13 +237,16 @@ namespace DD4hep {
         DASHED=0x2,
         LAST_STYLE
       };
-      struct Object  {
+      struct Object : public TNamed  {
 	unsigned long magic;
 	void*         col;
         int           color;
 	float         alpha;
         unsigned char drawingStyle, lineStyle, showDaughters, visible;
-        Object() : magic(magic_word()), col(0), color(0), alpha(0), drawingStyle(SOLID), lineStyle(SOLID), showDaughters(true), visible(true)  {}
+	/// Standard constructor
+	Object();
+	/// Default destructor
+	virtual ~Object();
       };
       /// Default constructor
       VisAttr() : Ref_t() {}
@@ -266,8 +257,8 @@ namespace DD4hep {
       VisAttr(const VisAttr& e) : Ref_t(e) {}
       /// Constructor to be used when creating a new registered visualization object
       VisAttr(const std::string& name);
-      /// Additional data accessor
-      Object& _data()   const {  return *data<Object>();  }
+      /// Assignment operator
+      VisAttr& operator=(const VisAttr& attr) {  m_element = attr.m_element; return *this; }
 
       /// Get Flag to show/hide daughter elements
       bool showDaughters() const;
@@ -361,18 +352,23 @@ namespace DD4hep {
      *  @version 1.0
      */
     struct LimitSet : public Ref_t  {
-      typedef std::set<Limit> Object;  
+      struct Object : public TNamed, public std::set<Limit>  {
+	/// Standard constructor
+	Object();
+	/// Default destructor
+	virtual ~Object();
+      };
       /// Constructor to be used when reading the already parsed DOM tree
       LimitSet() : Ref_t() {}
       /// Constructor to be used when reading the already parsed DOM tree
       template <typename Q> 
       LimitSet(const Handle<Q>& e) : Ref_t(e) {}
-      /// Constructor to be used when creating a new DOM tree
+      /// Constructor to be used when creating a new object
       LimitSet(const std::string& name);
       /// Add new limit. Returns true if the new limit was added, false if it already existed.
       bool addLimit(const Limit& limit);
       /// Accessor to limits container
-      const Object& limits() const;
+      const std::set<Limit>& limits() const;
     };
 
     /** @class Region Objects.h
@@ -381,24 +377,26 @@ namespace DD4hep {
      *  @version 1.0
      */
     struct Region : public Ref_t  {
-      struct Object  {
+      struct Object : public TNamed  {
 	unsigned long magic;
         double        threshold;
         double        cut;
         bool          store_secondaries;
         std::string   lunit, eunit;
 	std::vector<std::string> user_limits;
+	/// Standard constructor
+	Object();
+	/// Default destructor
+	virtual ~Object();
       };
       /// Default constructor
       Region() : Ref_t() {}
       /// Constructor to be used when reading the already parsed DOM tree
       template <typename Q> 
       Region(const Handle<Q>& e) : Ref_t(e) {}
-      /// Constructor to be used when creating a new DOM tree
+      /// Constructor to be used when creating a new object
       Region(const std::string& name);
 
-      /// Additional data accessor
-      Object& _data()   const {  return *data<Object>();  }
       Region& setStoreSecondaries(bool value);
       Region& setThreshold(double value);
       Region& setCut(double value);
@@ -419,51 +417,21 @@ namespace DD4hep {
       const std::string& energyUnit() const;
     };
 
-    /** @class IDSpec Objects.h
-     *  
-     *  @author  M.Frank
-     *  @version 1.0
-     */
-    struct IDSpec : public Ref_t   {
-      /// Constructor to be used when reading the already parsed DOM tree
-      template <typename Q> 
-      IDSpec(const Handle<Q>& e) : Ref_t(e) {}
-      /// Constructor to be used when creating a new DOM tree
-      IDSpec(LCDD& doc, const std::string& name, const IDDescriptor& dsc);
-      void addField(const std::string& name, const std::pair<int,int>& field);
-    };
-
   }       /* End namespace Geometry           */
 }         /* End namespace DD4hep             */
 
 
 namespace ROOT { namespace Math {
     typedef DD4hep::Geometry::Position Position;
-
-    /// Addition of 2 positions
-    inline Position operator + (const Position& l, const Position& r)
-    {  return Position(l.X()+r.X(),l.Y()+r.Y(),l.Z()+r.Z());                               }
-    /// Subtraction of to positions
-    inline Position operator - (const Position& l, const Position& r)
-    {  return Position(l.X()-r.X(),l.Y()-r.Y(),l.Z()-r.Z());                               }
     /// Dot product of 3-vectors.
     inline double operator * (const Position& l, const Position& r)
-    {  return sqrt(l.X()*r.X() + l.Y()*r.Y() + l.Z()*r.Z());                               }
-    /// Positions scaling from left
-    inline Position operator * (double l, const Position& r) 
-    {  return Position(r.X()*l,r.Y()*l,r.Z()*l);                                           }
-    /// Positions scaling from right
-    inline Position operator * (const Position& l, double r)
-    {  return Position(l.X()*r,l.Y()*r,l.Z()*r);                                           }
-    /// Positions scaling from right
-    inline Position operator / (const Position& l, double r)
-    {  return Position(l.X()/r,l.Y()/r,l.Z()/r);                                           }
+    {  return sqrt(l.X()*r.X() + l.Y()*r.Y() + l.Z()*r.Z());         }
     /// Calculate the mean length of two vectors
     inline double mean_length(const Position& p1, const Position& p2)
-    {  return 0.5* (p1.R() + p2.R()) / 2.0;                                                }
+    {  return 0.5* (p1.R() + p2.R()) / 2.0;                          }
     /// Calculate the mean direction of two vectors
     inline Position mean_direction(const Position& p1, const Position& p2)
-    { return 0.5 * (p1 + p2);                                                              }
+    { return 0.5 * (p1 + p2);                                        }
 
 }}
 

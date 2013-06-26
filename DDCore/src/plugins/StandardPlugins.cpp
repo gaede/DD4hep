@@ -12,6 +12,8 @@
 // Framework include files
 #include "DD4hep/Factories.h"
 #include "DD4hep/LCDD.h"
+#include "../LCDDImp.h"
+
 // ROOT includes
 #include "TGeoManager.h"
 #include "TGeoVolume.h"
@@ -24,20 +26,18 @@ static void* create_lcdd_instance(const char* /* name */) {
 }
 DECLARE_CONSTRUCTOR(LCDD_constructor,create_lcdd_instance);
 
-static long display(LCDD& /* lcdd */,int argc,char** argv)    {
-  TGeoManager* mgr = gGeoManager;
+static long display(LCDD& lcdd,int argc,char** argv)    {
+  TGeoManager& mgr = lcdd.manager();
   const char* opt = "ogl";
   if ( argc > 0 )   {
     opt = argv[0];
   }
-  if ( mgr ) {
-    mgr->SetVisLevel(4);
-    mgr->SetVisOption(1);
-    TGeoVolume* vol = mgr->GetTopVolume();
-    if ( vol ) {
-      vol->Draw(opt);
-      return 1;
-    }
+  mgr.SetVisLevel(4);
+  mgr.SetVisOption(1);
+  TGeoVolume* vol = mgr.GetTopVolume();
+  if ( vol ) {
+    vol->Draw(opt);
+    return 1;
   }
   return 0;
 }
@@ -53,3 +53,27 @@ static long load_compact(LCDD& lcdd,int argc,char** argv)    {
 }
 DECLARE_APPLY(DD4hepCompactLoader,load_compact);
 
+static long load_xml(LCDD& lcdd,int argc,char** argv)    {
+  string input = argv[0];
+  cout << "Processing compact input file : " << input << endl;
+  lcdd.fromXML(input);
+  return 1;
+}
+DECLARE_APPLY(DD4hepXMLLoader,load_xml);
+
+static long load_volmgr(LCDD& lcdd,int,char**)    {
+  try {
+    LCDDImp* imp = dynamic_cast<LCDDImp*>(&lcdd);
+    imp->m_volManager = VolumeManager("World", imp->world(), Readout(), VolumeManager::TREE);
+    cout << "++ Volume manager populated and loaded." << endl;
+  }
+  catch(const exception& e)  {
+    throw runtime_error(string(e.what())+"\n"
+			"           while programming VolumeManager. Are your volIDs correct?");
+  }
+  catch(...)  {
+    throw runtime_error("UNKNOWN exception while programming VolumeManager. Are your volIDs correct?");
+  }
+  return 1;
+}
+DECLARE_APPLY(DD4hepVolumeManager,load_volmgr);

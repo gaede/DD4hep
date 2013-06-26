@@ -26,24 +26,32 @@ namespace DD4hep {
    */
   namespace Geometry  {
 
-    /** @class Readout  Readout.h DD4hep/lcdd/Readout.h
+    /** @class Readout  Readout.h DD4hep/Readout.h
       *
       * @author  M.Frank
       * @version 1.0
       */
     struct Readout : public Ref_t {
-      public:
-
-      struct Object {
+    public:
+      
+      /** @class Readout::Object  Readout.h DD4hep/Readout.h
+       *
+       * @author  M.Frank
+       * @version 1.0
+       */
+      struct Object : public TNamed  {
+	/// Handle to the readout segmentation
         Segmentation segmentation;
+	/// Handle to the volume
 	Volume       readoutWorld;
+	/// Handle to the field descriptor
         IDDescriptor id;
+	/// Standard constructor
+	Object();
+	/// Default destructor
+	virtual ~Object();
       };
-      protected:
-      /// Additional data accessor
-      Object& _data()   const {  return *data<Object>();  }
-
-      public:
+    public:
       /// Default constructor
       Readout() : Ref_t() {}
       /// Constructor to be used when reading the already parsed object
@@ -66,8 +74,12 @@ namespace DD4hep {
       * @version 1.0
       */
     struct Alignment : public Ref_t {
-      struct Object {
+      struct Object : public TNamed {
         Volume volume;
+	/// Standard constructor
+	Object();
+	/// Default destructor
+	virtual ~Object();
       };
       /// Default constructor
       Alignment() : Ref_t() {}
@@ -85,7 +97,11 @@ namespace DD4hep {
       * @version 1.0
       */
     struct Conditions : public Ref_t {
-      struct Object {
+      struct Object : public TNamed {
+	/// Standard constructor
+	Object();
+	/// Default destructor
+	virtual ~Object();	
       };
       /// Default constructor
       Conditions() : Ref_t() {}

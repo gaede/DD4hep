@@ -45,7 +45,7 @@ namespace DD4hep {
       /// Definition of the extension type
       typedef std::map<const std::type_info*,void*>  Extensions;
 
-      struct Object  {
+      struct Object : public TNamed  {
         unsigned int magic;
         int          verbose;
         int          combineHits;
@@ -57,10 +57,9 @@ namespace DD4hep {
         Extensions   extensions;
 
         /// Default constructor
-        Object() : magic(magic_word()), verbose(0), combineHits(0), ecut(0.0),
-        hitsCollection(), readout(), region(), limits(), extensions() {}
+        Object();
         /// Internal object destructor: release extension object(s)
-        ~Object();
+        virtual ~Object();
       };
       protected:
 
@@ -91,8 +90,8 @@ namespace DD4hep {
       /// Constructor for a new sensitive detector element
       SensitiveDetector(const std::string& name, const std::string& type="sensitive");
       
-      /// Additional data accessor
-      Object& _data()   const {  return *data<Object>();  }
+      /// Assignment operator
+      SensitiveDetector& operator=(const SensitiveDetector& sd) {  m_element = sd.m_element;  return *this; }
 
       /// Access the type of the sensitive detector
       std::string type() const;
@@ -165,21 +164,21 @@ namespace DD4hep {
       typedef std::map<std::string,DetElement>       Children;
       typedef std::map<const std::type_info*,void*>  Extensions;
       
-      enum {
+      enum CopyParameters  {
         COPY_NONE      = 0,
         COPY_PLACEMENT = 1<<0,
         COPY_PARENT    = 1<<1,
         COPY_ALIGNMENT = 1<<2,
         LAST
-      } CopyParameters;
-      struct Object  {
+      };
+      struct Object : public TNamed  {
         unsigned int      magic;
         int               id;
         /// Full path to this detector element. May be invalid
         std::string       path;
         int               combineHits;
         Volume            volume;
-        Readout           readout;
+        // Readout           readout;
         Alignment         alignment;
         Conditions        conditions;
         PlacedVolume      placement;
@@ -201,7 +200,7 @@ namespace DD4hep {
         /// Internal object destructor: release extension object(s)
         virtual ~Object();
         /// Deep object copy to replicate DetElement trees e.g. for reflection
-        virtual Value<TNamed,Object>* clone(int new_id, int flag)  const;
+        virtual Object* clone(int new_id, int flag)  const;
         /// Conversion to reference object
         operator Ref_t();
         /// Conversion to reference object
@@ -213,9 +212,6 @@ namespace DD4hep {
         /// Create cached matrix to transform to reference coordinates
         TGeoMatrix* referenceTransformation();
       };
-      
-      /// Additional data accessor
-      Object& _data()   const {  return *data<Object>();  }
       
       /// Internal assert function to check conditions
       void check(bool condition, const std::string& msg) const;
@@ -243,19 +239,20 @@ namespace DD4hep {
       {  this->assign(data, name, type);                   }
 
       template<typename Q> DetElement(const std::string& name, const std::string& type, int id, const Q&)
-      {   assign(new Value<TNamed,Q>(),name,type);
-           _data().id = id; }
+	{   assign(new Q(),name,type);
+	    object<Object>().id = id; 
+	}
       
       /// Construction function for a new subdetector element
       template<typename Q> 
       static Q* createObject(const std::string& name, const std::string& type, int id)   {
 	DetElement det;
-	Value<TNamed,Q> *p = new Value<TNamed,Q>();
+	Q *p = new Q();
         Object* o = p;
 	if ( o ) {                  // This should cause a compilation error if Q is 
 	  det.assign(p,name,type);  // not a subclass of Object, which is mandatoryyyy
 	}
-	det._data().id = id;
+	det.object<Object>().id = id;
         return p;
       }
 
@@ -264,7 +261,7 @@ namespace DD4hep {
       static DetElement create(const std::string& name, const std::string& type, int id, Q** ptr=0)   {
         Q* p = createObject<Q>(name,type,id);
 	if ( ptr ) *ptr = p;
-	return DetElement(Ref_t(dynamic_cast<Value<TNamed,Q>*>(p)));
+	return DetElement(Ref_t(p));
       }
 
       /// Templated constructor for handle conversions
@@ -282,6 +279,18 @@ namespace DD4hep {
       /// Constructor for a new subdetector element
       DetElement(DetElement parent, const std::string& name, int id);
       
+      /// Additional data accessor
+      Object& _data() const                       {  return object<Object>();              }
+
+      /// Operator less to insert into a map
+      bool operator <(const DetElement e)  const  {  return ptr() < e.ptr();               }
+
+      /// Equality operator
+      bool operator ==(const DetElement e)  const {  return ptr() == e.ptr();              }
+
+      /// Assignment operator
+      DetElement& operator=(const DetElement& e)  {  m_element=e.m_element;  return *this; }
+
       /// Clone (Deep copy) the DetElement structure with a new name
       DetElement clone(const std::string& new_name) const;
       
@@ -308,7 +317,7 @@ namespace DD4hep {
        */
       std::string     type() const;
       ///  Set detector type (structure, tracker, calorimeter, etc.).
-      DetElement& setType(const std::string& typ);
+      DetElement&     setType(const std::string& typ);
       
       /// Path of the detector element (not necessarily identical to placement path!)
       std::string     path() const;
@@ -316,23 +325,27 @@ namespace DD4hep {
       std::string     placementPath() const;
       
       /// Set all attributes in one go
-      DetElement& setAttributes(const LCDD& lcdd, const Volume& volume,
-                                const std::string& region,
-                                const std::string& limits,
-                                const std::string& vis);
+      DetElement&     setAttributes(const LCDD& lcdd, const Volume& volume,
+				    const std::string& region,
+				    const std::string& limits,
+				    const std::string& vis);
       
       /// Set Visualization attributes to the detector element
-      DetElement& setVisAttributes(const LCDD& lcdd, const std::string& name, const Volume& volume);
+      DetElement&     setVisAttributes(const LCDD& lcdd, const std::string& name, const Volume& volume);
       /// Set the regional attributes to the detector element
-      DetElement& setRegion(const LCDD& lcdd, const std::string& name, const Volume& volume);
+      DetElement&     setRegion(const LCDD& lcdd, const std::string& name, const Volume& volume);
       /// Set the limits to the detector element
-      DetElement& setLimitSet(const LCDD& lcdd, const std::string& name, const Volume& volume);
-      
+      DetElement&     setLimitSet(const LCDD& lcdd, const std::string& name, const Volume& volume);
+
+#if 0      
+      !!!!
+      !!!! MUST remove this: double caching and invalid information in case of reflection etc.
+      !!!!
       /// Access the readout structure
       Readout         readout() const;
       /// Assign readout definition
       DetElement&     setReadout(const Readout& readout);
-      
+#endif
       /// Access to the logical volume of the daughter placement
       Volume          volume() const;
       
@@ -370,5 +383,5 @@ namespace DD4hep {
     };
     
   }       /* End namespace Geometry      */
-}         /* End namespace DD4hep       */
-#endif    /* DD4hep_LCDD_DETECTOR_H     */
+}         /* End namespace DD4hep        */
+#endif    /* DD4hep_LCDD_DETECTOR_H      */

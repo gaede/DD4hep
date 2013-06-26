@@ -19,7 +19,7 @@
 
 using namespace std;
 using namespace DD4hep::XML;
-#define INVALID_NODE ~0x0
+static const size_t INVALID_NODE = ~0U;
 
 // Forward declarations
 namespace DD4hep  {
@@ -133,7 +133,7 @@ string DD4hep::XML::_toString(Attribute attr)  {
 
 template <typename T> static inline string __to_string(T value, const char* fmt)  {
   char text[128];
-  ::sprintf(text,fmt,value);
+  ::snprintf(text,sizeof(text),fmt,value);
   return text;
 }
 
@@ -288,8 +288,10 @@ Strng_t& Strng_t::operator=(const char* s)   {
 }
 
 Strng_t& Strng_t::operator=(const Strng_t& s)   {
-  if (m_xml) XmlString::release(&m_xml);
-  m_xml = XmlString::replicate(s.m_xml);
+  if ( this != &s ) {
+    if (m_xml) XmlString::release(&m_xml);
+    m_xml = XmlString::replicate(s.m_xml);
+  }
   return *this;
 }
 
@@ -300,9 +302,11 @@ Strng_t& Strng_t::operator=(const string& s)   {
 }
 
 Tag_t& Tag_t::operator=(const Tag_t& s)  {
-  m_str = s.m_str;
-  if (m_xml) XmlString::release(&m_xml);
-  m_xml = XmlString::transcode(m_str.c_str());
+  if ( this != &s ) {
+    m_str = s.m_str;
+    if (m_xml) XmlString::release(&m_xml);
+    m_xml = XmlString::transcode(m_str.c_str());
+  }
   return *this;
 }
 
@@ -334,13 +338,13 @@ Tag_t& Tag_t::operator=(const string& s) {
 }
 
 /// Copy constructor
-NodeList::NodeList(const NodeList& l)
-  : m_node(l.m_node), m_ptr(0)
+NodeList::NodeList(const NodeList& copy)
+  : m_node(copy.m_node), m_ptr(0)
 #ifndef DD4HEP_USE_TINYXML
 , m_index(0)
 #endif
 {
-  m_tag  = XmlString::replicate(l.m_tag);
+  m_tag  = XmlString::replicate(copy.m_tag);
   reset();
 }
 
@@ -391,10 +395,12 @@ XmlElement* NodeList::previous()  const {
 
 /// Assignment operator
 NodeList& NodeList::operator=(const NodeList& l) {
-  if ( m_tag ) XmlString::release(&m_tag);
-  m_tag = XmlString::replicate(l.m_tag);
-  m_node = l.m_node;
-  reset();
+  if ( this != &l ) {
+    if ( m_tag ) XmlString::release(&m_tag);
+    m_tag = XmlString::replicate(l.m_tag);
+    m_node = l.m_node;
+    reset();
+  }
   return *this;
 }
 
@@ -417,6 +423,7 @@ const XmlChar* Handle_t::rawValue() const     {
 Handle_t Handle_t::clone(XmlDocument* new_doc) const  {
   if ( m_node ) {
 #ifdef DD4HEP_USE_TINYXML
+    if ( new_doc ) {}
     if ( _N(m_node)->Type() == ELEMENT_NODE_TYPE ) {
       XmlElement* e = _XE(_N(m_node)->Clone()->ToElement());
       if ( e ) return e;
@@ -636,28 +643,28 @@ const XmlChar* Handle_t::attr_value_nothrow(const XmlChar* attr)  const   {
 /// Generic attribute setter with integer value
 Attribute Handle_t::setAttr(const XmlChar* name, int val)  const    {
   char txt[32];
-  ::sprintf(txt,"%d",val);
+  ::snprintf(txt,sizeof(txt),"%d",val);
   return setAttr(name, Strng_t(txt));
 }
 
 /// Generic attribute setter with boolen value
 Attribute Handle_t::setAttr(const XmlChar* name, bool val)  const   {
   char txt[32];
-  ::sprintf(txt,"%s",val ? "true" : "false");
+  ::snprintf(txt,sizeof(txt),"%s",val ? "true" : "false");
   return setAttr(name, Strng_t(txt));
 }
 
 /// Generic attribute setter with floating point value
 Attribute Handle_t::setAttr(const XmlChar* name, float val)  const   {
   char txt[32];
-  ::sprintf(txt,"%f",val);
+  ::snprintf(txt,sizeof(txt),"%f",val);
   return setAttr(name, Strng_t(txt));
 }
 
 /// Generic attribute setter with double precision floating point value
 Attribute Handle_t::setAttr(const XmlChar* name, double val)  const   {
   char txt[32];
-  ::sprintf(txt,"%f",val);
+  ::snprintf(txt,sizeof(txt),"%f",val);
   return setAttr(name, Strng_t(txt));
 }
 
@@ -822,7 +829,6 @@ Document Element::document() const   {
 /// Clone the DOM element tree
 Handle_t Element::clone(Handle_t h) const  {
   if ( m_element && h )  {    
-    Document d = document();
     return h.clone(Document::DOC(document()));
   }
   throw runtime_error("Element::clone: Invalid element pointer -- unable to clone node!");
@@ -869,21 +875,29 @@ void Element::addComment(const char* text) const {
 #endif
 }
 
+/// Initializing constructor to create a new XMLElement and add it to the document.
 RefElement::RefElement(const Document& document, const XmlChar* type, const XmlChar* name)  
 : Element(document, type) 
 {
   m_name = name ? setAttr(_U(name),name) : 0;
 }
 
+/// Construction from existing object handle
 RefElement::RefElement(const Handle_t& e)  
 : Element(e) 
 {
   m_name = m_element ? getAttr(_U(name)) : 0;
 }
 
+/// Copy constructor
 RefElement::RefElement(const RefElement& e)  
 : Element(e), m_name(e.m_name)
 {
+}
+
+/// Assignment operator
+RefElement& RefElement::operator=(const RefElement& e) {
+  m_element = e.m_element; return *this;
 }
 
 const XmlChar* RefElement::name() const  {

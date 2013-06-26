@@ -41,7 +41,7 @@ double PropertyMap::toDouble(const string& key) const {
   return _toDouble(value(key));
 }
 
-static long setup_fields(lcdd_t& lcdd, const Geant4Converter& cnv, const map<string,string>& vals) {
+static long setup_fields(lcdd_t& lcdd, const Geant4Converter& /* cnv */, const map<string,string>& vals) {
   PropertyMap pm(vals);
   DD4hep::Geometry::OverlayedField fld  = lcdd.field();
   G4MagIntegratorStepper*  stepper = 0;
@@ -90,4 +90,4 @@ static long setup_fields(lcdd_t& lcdd, const Geant4Converter& cnv, const map<str
   }
   return 1;
 }
-DECLARE_GEANT4_SETUP(Geant4FieldSetup,setup_fields);
+DECLARE_GEANT4_SETUP(Geant4FieldSetup,setup_fields)

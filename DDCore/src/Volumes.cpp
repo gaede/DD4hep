@@ -8,6 +8,8 @@
 //====================================================================
 
 #include "DD4hep/LCDD.h"
+#include "DD4hep/InstanceCount.h"
+#include "MatrixHelpers.h"
 
 // ROOT include files
 #include "TColor.h"
@@ -36,8 +38,13 @@ namespace DD4hep  { namespace Geometry  {
   {
     Value(const TGeoVolume* v, const TGeoMatrix* m) : TGeoNodeMatrix(v,m), PlacedVolume::Object() {
       magic = magic_word();
+      InstanceCount::increment(this);
     }
     Value(const Value& c) : TGeoNodeMatrix(c.GetVolume(),c.GetMatrix()), PlacedVolume::Object(c) {
+      InstanceCount::increment(this);
+    }
+    virtual ~Value() {
+      InstanceCount::decrement(this);
     }
     virtual TGeoNode *MakeCopyNode() const {
       TGeoNodeMatrix *node = new Value<TGeoNodeMatrix,PlacedVolume::Object>(*this);
@@ -106,8 +113,13 @@ namespace DD4hep  { namespace Geometry  {
   template <> struct Value<TGeoVolume,Volume::Object>
   : public _VolWrap<TGeoVolume>, public Volume::Object  {
     Value(const char* name, TGeoShape* s=0, TGeoMedium* m=0) 
-      : _VolWrap<TGeoVolume>(name,s,m) {magic = magic_word();}
-    virtual ~Value() {}
+      : _VolWrap<TGeoVolume>(name,s,m) {
+      magic = magic_word();
+      InstanceCount::increment(this);
+    }
+    virtual ~Value() {
+      InstanceCount::decrement(this);
+    }
     TGeoVolume *_copyVol(TGeoShape *newshape) const {
       typedef Value<TGeoVolume,Volume::Object> _Vol;
       _Vol *vol = new _Vol(GetName(), newshape, fMedium);
@@ -172,9 +184,13 @@ namespace DD4hep  { namespace Geometry  {
   
   template <> struct Value<TGeoVolumeAssembly,Assembly::Object> 
   : public _VolWrap<TGeoVolumeAssembly>, public Assembly::Object  {
-    Value(const char* name) : _VolWrap<TGeoVolumeAssembly>(name,0,0) {  magic = magic_word(); }
-    virtual ~Value() {}
-    
+    Value(const char* name) : _VolWrap<TGeoVolumeAssembly>(name,0,0) {
+      magic = magic_word(); 
+      InstanceCount::increment(this);
+    }
+    virtual ~Value() {
+      InstanceCount::decrement(this);
+    }
     TGeoVolume *CloneVolume() const    {
       TGeoVolume *vol = new Value<TGeoVolumeAssembly,Assembly::Object>(GetName());
       Int_t i;
@@ -210,33 +226,76 @@ namespace DD4hep  { namespace Geometry  {
 
 }}
 
+/// Default constructor
+PlacedVolume::Object::Object() : magic(0), volIDs() {
+  InstanceCount::increment(this);
+}
+
+/// Copy constructor
+PlacedVolume::Object::Object(const Object& c) : magic(c.magic), volIDs(c.volIDs) {
+  InstanceCount::increment(this);
+}
+
+/// Default destructor
+PlacedVolume::Object::~Object()   {
+  InstanceCount::decrement(this);
+}
+
+/// Lookup volume ID
+vector<PlacedVolume::VolID>::const_iterator 
+PlacedVolume::VolIDs::find(const string& name)  const   {
+  for(Base::const_iterator i=this->Base::begin(); i!=this->Base::end(); ++i)  
+    if ( name == (*i).first ) return i;
+  return this->end();
+}
+
+/// Insert a new value into the volume ID container
+std::pair<vector<PlacedVolume::VolID>::iterator,bool> 
+PlacedVolume::VolIDs::insert(const string& name, int value)   {
+  Base::iterator i = this->Base::begin();
+  for(; i!=this->Base::end(); ++i)  
+    if ( name == (*i).first ) break;
+  //
+  if ( i != this->Base::end() ) {
+    return make_pair(i,false);
+  }
+  i = this->Base::insert(this->Base::end(),make_pair(name,value));
+  return make_pair(i,true);
+}
+
+static PlacedVolume::Object* _data(const PlacedVolume& v)  {
+   PlacedVolume::Object* o = dynamic_cast<PlacedVolume::Object*>(v.ptr());
+   if ( o ) return o;
+   throw runtime_error("Attempt to access invalid handle of type: PlacedVolume");
+}
+
 /// Add identifier
 PlacedVolume& PlacedVolume::addPhysVolID(const string& name, int value)   {
-  Object* obj = data<Object>();
-  obj->volIDs[name] = value;
+  Object* obj = _data(*this);
+  obj->volIDs.push_back(VolID(name,value));
   return *this;
 }
 
 /// Volume material
 Material PlacedVolume::material() const 
-{  return Material::handle_t(m_element ? m_element->GetMedium()->GetMaterial() : 0);  }
+{  return Material::handle_t(m_element ? m_element->GetMedium() : 0);     }
 
 /// Logical volume of this placement
 Volume   PlacedVolume::volume() const 
-{  return Volume::handle_t(m_element ? m_element->GetVolume() : 0);                   }
+{  return Volume::handle_t(m_element ? m_element->GetVolume() : 0);       }
 
 /// Parent volume (envelope)
 Volume PlacedVolume::motherVol() const 
-{  return Volume::handle_t(m_element ? m_element->GetMotherVolume() : 0);             }
+{  return Volume::handle_t(m_element ? m_element->GetMotherVolume() : 0); }
 
 /// Access to the volume IDs
 const PlacedVolume::VolIDs& PlacedVolume::volIDs() const 
-{  return data<Object>()->volIDs;                                                     }
+{  return _data(*this)->volIDs;                                           }
 
 /// String dump
 string PlacedVolume::toString() const {
   stringstream s;
-  Object* obj = data<Object>();
+  Object* obj = _data(*this);
   s << m_element->GetName() << ":  vol='" << m_element->GetVolume()->GetName()
     << "' mat:'" << m_element->GetMatrix()->GetName() << "' volID[" << obj->volIDs.size() << "] ";
   for(VolIDs::const_iterator i=obj->volIDs.begin(); i!=obj->volIDs.end();++i)
@@ -245,9 +304,27 @@ string PlacedVolume::toString() const {
   return s.str();
 }
 
-Volume::Object* _data(const Volume& v) {
-  if ( v.ptr() && v.ptr()->IsA() == TGeoVolume::Class() ) return v.data<Volume::Object>();
-  return dynamic_cast<Volume::Object*>(v.ptr());
+/// Default constructor
+Volume::Object::Object() : magic(0), region(), limits(), vis(), sens_det(), referenced(0)  {
+  InstanceCount::increment(this);
+}
+
+/// Default destructor
+Volume::Object::~Object()  {
+  region.clear();
+  limits.clear();
+  vis.clear();
+  sens_det.clear();
+  InstanceCount::decrement(this);
+}
+
+/// Accessor to the data part of the Volume
+Volume::Object* _data(const Volume& v, bool throw_exception = true) {
+  //if ( v.ptr() && v.ptr()->IsA() == TGeoVolume::Class() ) return v.data<Volume::Object>();
+  Volume::Object* o = dynamic_cast<Volume::Object*>(v.ptr());
+  if ( o ) return o;
+  else if ( !throw_exception ) return 0;
+  throw runtime_error("Attempt to access invalid handle of type: PlacedVolume");
 }
 
 /// Constructor to be used when creating a new geometry tree.
@@ -261,19 +338,6 @@ Volume::Volume(const string& name, const Solid& s, const Material& m) {
   setMaterial(m);
 }
 
-/// Set the volume's material
-void Volume::setMaterial(const Material& m)  const  {
-  if ( m.isValid() )   {
-    TGeoMedium* medium = m._ptr<TGeoMedium>();
-    if ( medium )  {
-      m_element->SetMedium(medium);
-      return;
-    }
-    throw runtime_error("Volume: Medium "+string(m.name())+" is not registered with geometry manager.");
-  }
-  throw runtime_error("Volume: Attempt to assign invalid material.");
-}
-
 static PlacedVolume _addNode(TGeoVolume* par, TGeoVolume* daughter, TGeoMatrix* transform) {
   TGeoVolume* parent = par;
   TObjArray* a = parent->GetNodes();
@@ -283,48 +347,23 @@ static PlacedVolume _addNode(TGeoVolume* par, TGeoVolume* daughter, TGeoMatrix* 
     transform->SetName(nam.c_str());
   }
   parent->AddNode(daughter,id,transform);
-  TGeoNodeMatrix* n = dynamic_cast<TGeoNodeMatrix*>(parent->GetNode(id));
+  TGeoNode* n = parent->GetNode(id);
   return PlacedVolume(n);
 }
 
-static TGeoTranslation* _translation(const Position& pos) {
-  return new TGeoTranslation("",pos.X()*MM_2_CM,pos.Y()*MM_2_CM,pos.Z()*MM_2_CM);
-}
-
-static TGeoRotation* _rotation(const Rotation& rot) {
-  return new TGeoRotation("",rot.Phi()*RAD_2_DEGREE,rot.Theta()*RAD_2_DEGREE,rot.Psi()*RAD_2_DEGREE);
-}
-
 /// Place daughter volume according to generic Transform3D
-PlacedVolume Volume::placeVolume(const Volume& volume, const Transform3D& tr)  const  {
-  Rotation rot;
-  Position pos;
-  tr.GetDecomposition(rot,pos);
-  return placeVolume(volume,rot,pos);
-}
-
-/// Place translated and rotated daughter volume
-PlacedVolume Volume::placeVolume(const Volume& volume, const Position& pos, const Rotation& rot)  const  {
+PlacedVolume Volume::placeVolume(const Volume& volume, const Transform3D& trans)  const  {
   if ( volume.isValid() )   {
-    TGeoCombiTrans* transform = new TGeoCombiTrans("",pos.X()*MM_2_CM,pos.Y()*MM_2_CM,pos.Z()*MM_2_CM,_rotation(rot));
-    return _addNode(m_element,volume,transform);
+    return _addNode(m_element,volume,_transform(trans));
   }
   throw runtime_error("Volume: Attempt to assign an invalid physical volume.");
+
 }
 
-/// Place daughter volume in rotated and then translated mother coordinate system
-PlacedVolume Volume::placeVolume(const Volume& volume, const Rotation& rot, const Position& pos)  const  {
+/// Place daughter volume. The position and rotation are the identity
+PlacedVolume Volume::placeVolume(const Volume& volume)  const   {
   if ( volume.isValid() )   {
-    TGeoHMatrix *trans = new TGeoHMatrix();
-    double t[3];
-    trans->RotateZ(rot.Phi()*RAD_2_DEGREE);
-    trans->RotateY(rot.Theta()*RAD_2_DEGREE);
-    trans->RotateX(rot.Psi()*RAD_2_DEGREE);
-    pos.GetCoordinates(t);
-    trans->SetDx(t[0]*MM_2_CM);
-    trans->SetDy(t[1]*MM_2_CM);
-    trans->SetDz(t[2]*MM_2_CM);
-    return _addNode(m_element,volume,trans);
+    return _addNode(m_element,volume,identityTransform());
   }
   throw runtime_error("Volume: Attempt to assign an invalid physical volume.");
 }
@@ -345,24 +384,34 @@ PlacedVolume Volume::placeVolume(const Volume& volume, const Rotation& rot)  con
   throw runtime_error("Volume: Attempt to assign an invalid physical volume.");
 }
 
-/// Place daughter volume. The position and rotation are the identity
-PlacedVolume Volume::placeVolume(const Volume& volume, const IdentityPos& /* pos */)  const  {
+/// Place rotated daughter volume. The position is automatically the identity position
+PlacedVolume Volume::placeVolume(const Volume& volume, const Rotation3D& rot)  const  {
   if ( volume.isValid() )   {
-    return _addNode(m_element,volume,identityTransform());
+    return _addNode(m_element,volume,_rotation3D(rot));
   }
   throw runtime_error("Volume: Attempt to assign an invalid physical volume.");
 }
 
-/// Place daughter volume. The position and rotation are the identity
-PlacedVolume Volume::placeVolume(const Volume& volume, const IdentityRot& /* rot */)  const  {
-  if ( volume.isValid() )   {
-    return _addNode(m_element,volume,identityTransform());
+/// Set the volume's material
+const Volume& Volume::setMaterial(const Material& m)  const  {
+  if ( m.isValid() )   {
+    TGeoMedium* medium = m._ptr<TGeoMedium>();
+    if ( medium )  {
+      m_element->SetMedium(medium);
+      return *this;
+    }
+    throw runtime_error("Volume: Medium "+string(m.name())+" is not registered with geometry manager.");
   }
-  throw runtime_error("Volume: Attempt to assign an invalid physical volume.");
+  throw runtime_error("Volume: Attempt to assign invalid material.");
+}
+
+/// Access to the Volume material
+Material Volume::material() const   {
+  return Ref_t(m_element->GetMedium());
 }
 
 /// Set Visualization attributes to the volume
-void Volume::setVisAttributes(const VisAttr& attr) const   {
+const Volume& Volume::setVisAttributes(const VisAttr& attr) const   {
   if ( attr.isValid() )  {
     VisAttr::Object* vis = attr.data<VisAttr::Object>();
     Color_t bright = TColor::GetColorBright(vis->color);
@@ -391,10 +440,11 @@ void Volume::setVisAttributes(const VisAttr& attr) const   {
     m_element->SetVisDaughters(vis->showDaughters ? kTRUE : kFALSE);
   }
   _data(*this)->vis = attr;
+  return *this;
 }
 
 /// Set Visualization attributes to the volume
-void Volume::setVisAttributes(const LCDD& lcdd, const string& name)  const {
+const Volume& Volume::setVisAttributes(const LCDD& lcdd, const string& name)  const {
   if ( !name.empty() )   {
     VisAttr attr = lcdd.visAttributes(name);
     _data(*this)->vis = attr;
@@ -413,10 +463,11 @@ void Volume::setVisAttributes(const LCDD& lcdd, const string& name)  const {
      setVisAttributes(lcdd.visAttributes("InvisibleNoDaughters"));
      */
   }
+  return *this;
 }
 
 /// Attach attributes to the volume
-void Volume::setAttributes(const LCDD& lcdd,
+const Volume& Volume::setAttributes(const LCDD& lcdd,
                            const string& region, 
                            const string& limits, 
                            const string& vis)   const
@@ -424,53 +475,82 @@ void Volume::setAttributes(const LCDD& lcdd,
   if ( !region.empty() ) setRegion(lcdd.region(region));
   if ( !limits.empty() ) setLimitSet(lcdd.limitSet(limits));
   setVisAttributes(lcdd,vis);
+  return *this;
+}
+
+/// Access the visualisation attributes
+VisAttr Volume::visAttributes() const  {  
+  Object* o = _data(*this,false);
+  if ( o ) return o->vis;
+  return VisAttr();
 }
 
 /// Set the volume's solid shape
-void Volume::setSolid(const Solid& solid)  const  
-{  m_element->SetShape(solid);                              }
+const Volume& Volume::setSolid(const Solid& solid)  const  {
+  m_element->SetShape(solid);
+  return *this;
+}
+
+/// Access to Solid (Shape)
+Solid Volume::solid() const   {
+  return Solid((*this)->GetShape());
+}
 
 /// Set the regional attributes to the volume
-void Volume::setRegion(const Region& obj)  const   
-{  _data(*this)->region = obj;                            }
+const Volume& Volume::setRegion(const LCDD& lcdd, const string& name)  const  {
+  if ( !name.empty() )  {
+    return setRegion(lcdd.region(name));
+  }
+  return *this;
+}
+
+/// Set the regional attributes to the volume
+const Volume& Volume::setRegion(const Region& obj)  const    {
+  _data(*this)->region = obj;
+  return *this;
+}
+
+/// Access to the handle to the region structure
+Region Volume::region() const    {
+  return _data(*this)->region;
+}
 
 /// Set the limits to the volume
-void Volume::setLimitSet(const LimitSet& obj)  const   
-{  _data(*this)->limits = obj;                            }
+const Volume& Volume::setLimitSet(const LCDD& lcdd, const string& name)  const  {
+  if ( !name.empty() )  {
+    return setLimitSet(lcdd.limitSet(name));
+  }
+  return *this;
+}
+
+/// Set the limits to the volume
+const Volume& Volume::setLimitSet(const LimitSet& obj)  const    {
+  _data(*this)->limits = obj;
+  return *this;
+}
+
+/// Access to the limit set
+LimitSet Volume::limitSet() const   {
+  return _data(*this)->limits;
+}
 
 /// Assign the sensitive detector structure
-void Volume::setSensitiveDetector(const SensitiveDetector& obj) const   {
+const Volume& Volume::setSensitiveDetector(const SensitiveDetector& obj) const   {
   //cout << "Setting sensitive detector '" << obj.name() << "' to volume:" << ptr() << " " << name() << endl;
   _data(*this)->sens_det = obj;                          
+  return *this;
 }
 
 /// Access to the handle to the sensitive detector
-Ref_t Volume::sensitiveDetector() const
-{  return _data(*this)->sens_det;                         }
+Ref_t Volume::sensitiveDetector() const   {
+  const Object* o = _data(*this);
+  return o->sens_det;                         
+}
 
 /// Accessor if volume is sensitive (ie. is attached to a sensitive detector)
-bool Volume::isSensitive() const
-{  return _data(*this)->sens_det.isValid();               }
-
-/// Access to Solid (Shape)
-Solid Volume::solid() const   
-{  return Solid((*this)->GetShape());                       }
-
-/// Access to the Volume material
-Material Volume::material() const   
-{  return Handle<TGeoMaterial>(m_element->GetMaterial());   }
-
-/// Access the visualisation attributes
-VisAttr Volume::visAttributes() const
-{  return _data(*this)->vis;                              }
-
-/// Access to the handle to the region structure
-Region Volume::region() const   
-{  return _data(*this)->region;                           }
-
-/// Access to the limit set
-LimitSet Volume::limitSet() const   
-{  return _data(*this)->limits;                           }
+bool Volume::isSensitive() const   {
+  return _data(*this)->sens_det.isValid();
+}
 
 /// Constructor to be used when creating a new geometry tree.
 Assembly::Assembly(const string& name) {
