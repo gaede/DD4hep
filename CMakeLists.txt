@@ -55,6 +55,7 @@ endif()
 add_subdirectory(DDExamples/UtilityApps)
 add_subdirectory(DDExamples/AlignDet)
 add_subdirectory(DDExamples/CLICSiD)
+add_subdirectory(DDExamples/CLICSiDReco)
 
 
 ## --- ILD examples ----- 

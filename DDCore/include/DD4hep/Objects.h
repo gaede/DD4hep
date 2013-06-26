@@ -223,6 +223,8 @@ namespace DD4hep {
       std::string toString()  const;
       /// Access the radiation length of the undrelying material
       double radLength() const;
+      /// Access the nuclear interaction length of the undrelying material
+      double intLength() const;
     };
 
     /** @class VisAttr Objects.h

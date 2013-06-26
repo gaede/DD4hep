@@ -10,6 +10,8 @@
 #include "XML/Layering.h"
 #include "TGeoTrd2.h"
 
+#include "LayerStack.h"
+
 using namespace std;
 using namespace DD4hep;
 using namespace DD4hep::Geometry;
@@ -156,6 +158,8 @@ static Ref_t create_detector(LCDD& lcdd, xml_h e, SensitiveDetector sens)  {
 
   // Set envelope volume attributes.
   envelope.setAttributes(lcdd,x_det.regionStr(),x_det.limitsStr(),x_det.visStr());
+
+  sdet.addExtension<Geometry::LayerStack>(new Geometry::PolyhedralCalorimeterLayerStack(sdet));
   return sdet;
 }
 

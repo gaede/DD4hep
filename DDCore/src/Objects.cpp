@@ -178,6 +178,17 @@ double Material::radLength() const {
   throw runtime_error("Attempt to access radiation length from invalid material handle!");
 }
 
+/// Access the nuclear interaction length of the undrelying material
+double Material::intLength() const {
+  Handle<TGeoMedium>  val(*this);
+  if ( val.isValid() ) {
+    TGeoMaterial* m = val->GetMaterial();
+    if ( m ) return m->GetIntLen();
+    throw runtime_error("The medium "+string(val->GetName())+" has an invalid material reference!");
+  }
+  throw runtime_error("Attempt to access radiation length from invalid material handle!");
+}
+
 /// String representation of this object
 string Material::toString()  const {
   Handle<TGeoMedium>  val(*this);
