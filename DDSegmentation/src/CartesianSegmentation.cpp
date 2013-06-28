@@ -17,7 +17,7 @@ CartesianSegmentation::CartesianSegmentation(const string& cellEncoding) :
 
 }
 
-CartesianSegmentation::CartesianSegmentation(BitField64& decoder) :
+CartesianSegmentation::CartesianSegmentation(const BitField64& decoder) :
 		Segmentation(decoder) {
 
 }

@@ -17,13 +17,13 @@ class CartesianXYZSegmentation: public CartesianXYSegmentation {
 public:
 	CartesianXYZSegmentation(const std::string& cellEncoding, double cellSizeX, double cellSizeY, double cellSizeZ,
 			double offsetX = 0., double offsetY = 0., double offsetZ = 0.);
-	CartesianXYZSegmentation(BitField64& decoder, double cellSizeX, double cellSizeY, double cellSizeZ, double offsetX =
+	CartesianXYZSegmentation(const BitField64& decoder, double cellSizeX, double cellSizeY, double cellSizeZ, double offsetX =
 			0., double offsetY = 0., double offsetZ = 0.);
 	virtual ~CartesianXYZSegmentation();
 
-	double* getLocalPosition(const long64& cellID) const;
+	virtual std::vector<double> getLocalPosition(const long64& cellID) const;
 
-	long64 getCellID(double x, double y, double z) const;
+	virtual long64 getCellID(double x, double y, double z) const;
 
 	double getCellSizeZ() const {
 		return _cellSizeZ;

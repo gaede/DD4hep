@@ -11,6 +11,7 @@ namespace DD4hep {
 namespace Segmentation {
 
 using std::string;
+using std::vector;
 
 CartesianXYZSegmentation::CartesianXYZSegmentation(const string& cellEncoding, double cellSizeX, double cellSizeY, double cellSizeZ,
 		double offsetX, double offsetY, double offsetZ) :
@@ -18,7 +19,7 @@ CartesianXYZSegmentation::CartesianXYZSegmentation(const string& cellEncoding, d
 
 }
 
-CartesianXYZSegmentation::CartesianXYZSegmentation(BitField64& decoder, double cellSizeX, double cellSizeY, double cellSizeZ,
+CartesianXYZSegmentation::CartesianXYZSegmentation(const BitField64& decoder, double cellSizeX, double cellSizeY, double cellSizeZ,
 		double offsetX, double offsetY, double offsetZ) :
 		CartesianXYSegmentation(decoder, cellSizeX, cellSizeY, offsetX, offsetY), _cellSizeZ(cellSizeZ), _offsetZ(offsetZ) {
 
@@ -28,12 +29,13 @@ CartesianXYZSegmentation::~CartesianXYZSegmentation() {
 
 }
 
-double* CartesianXYZSegmentation::getLocalPosition(const long64& cellID) const {
+vector<double> CartesianXYZSegmentation::getLocalPosition(const long64& cellID) const {
 	_decoder.setValue(cellID);
-	double x = binToPosition(_decoder["x"].value(), _cellSizeX, _offsetX);
-	double y = binToPosition(_decoder["y"].value(), _cellSizeY, _offsetY);
-	double z = binToPosition(_decoder["z"].value(), _cellSizeZ, _offsetZ);
-	return {x, y, 0.0};
+	vector<double> localPosition;
+	localPosition[0] = binToPosition(_decoder["x"].value(), _cellSizeX, _offsetX);
+	localPosition[1] = binToPosition(_decoder["y"].value(), _cellSizeY, _offsetY);
+	localPosition[2] = binToPosition(_decoder["z"].value(), _cellSizeZ, _offsetZ);
+	return localPosition;
 }
 
 long64 CartesianXYZSegmentation::getCellID(double x, double y, double z) const {

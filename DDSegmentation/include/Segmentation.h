@@ -11,6 +11,7 @@
 #include "BitField64.h"
 
 #include <string>
+#include <vector>
 
 namespace DD4hep {
 namespace Segmentation {
@@ -18,11 +19,13 @@ namespace Segmentation {
 class Segmentation {
 public:
 	Segmentation(const std::string& cellEncoding);
-	Segmentation(BitField64& decoder);
+	Segmentation(const BitField64& decoder);
 	virtual ~Segmentation();
 
-	double* getLocalPosition(const long64& cellID) const = 0;
-	long64 getCellID(double x, double y, double z) const = 0;
+	virtual std::vector<double> getLocalPosition(const long64& cellID) const = 0;
+
+	virtual long64 getCellID(double x, double y, double z) const = 0;
+	long64 getCellID(const std::vector<double>& localPosition) const;
 	long64 getCellID(double* localPosition) const;
 protected:
 	mutable BitField64 _decoder;

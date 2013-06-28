@@ -18,7 +18,7 @@ public:
 	virtual ~CartesianSegmentation();
 protected:
 	CartesianSegmentation(const std::string& cellEncoding);
-	CartesianSegmentation(BitField64& decoder);
+	CartesianSegmentation(const BitField64& decoder);
 
 	double binToPosition(long64 bin, double cellSize, double offset) const;
 	int positionToBin(double position, double cellSize, double offset) const;
