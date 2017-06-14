@@ -33,7 +33,7 @@ namespace DD4hep{
   namespace DDRec{}
   
   /// alignment module
-  namespace DDAlign{}
+  inline  namespace DDAlign{}
 
   /// alignment classes 
   namespace Alignments{}
@@ -51,12 +51,14 @@ namespace DD4hep{
   namespace Utilities{}
   
   /// xml stuff
-  namespace XML{}
+  //  namespace XML{}
+
+
+  namespace DDSurfaces{}
 
 }
 
 
-namespace DDSurfaces{}
 
 
 
@@ -64,26 +66,63 @@ namespace DDSurfaces{}
  * Convenient namespace that combines all public namespaces in DD4hep into one global namespace.
  */
 
-namespace dd4hep {
+// namespace dd4hep {
   
-  using namespace DD4hep ;
-  using namespace DDSurfaces ;
+//   using namespace DD4hep ;
+//   using namespace DDSurfaces ;
   
-  using namespace DD4hep::Geometry ;
-  using namespace DD4hep::DDRec ;
-  using namespace DD4hep::Alignments ;
-  using namespace DD4hep::Conditions ;
-  using namespace DD4hep::DDSegmentation ;
-  using namespace DD4hep::DDAlign ;
-  using namespace DD4hep::Utils ;
-  using namespace DD4hep::Utilities ;
-  using namespace DD4hep::Simulation ;
-  using namespace DD4hep::XML ;
+//   using namespace DD4hep::Geometry ;
+//   using namespace DD4hep::DDRec ;
+//   using namespace DD4hep::Alignments ;
+//   using namespace DD4hep::Conditions ;
+//   //  using namespace DD4hep::DDSegmentation ;
+//   using namespace DD4hep::DDAlign ;
+//   using namespace DD4hep::Utils ;
+//   using namespace DD4hep::Utilities ;
+//   using namespace DD4hep::Simulation ;
+//   //  using namespace DD4hep::XML ;
 
+//   namespace seg = DD4hep::DDSegmentation ;
+  
+//   /// define a better type name for the main detector description class
+//   typedef LCDD DetDescription ;
+// }
+
+
+
+/// core namespace
+namespace ddcore{
+
+  using namespace DD4hep ;
+  using namespace DD4hep::Geometry ;
 
   /// define a better type name for the main detector description class
   typedef LCDD DetDescription ;
+}
 
+///  ddg4 namespace
+namespace ddg4{
+
+  using namespace DD4hep ;
+  using namespace DD4hep::Simulation ;
+}
+
+
+/// ddrec namespace
+namespace ddrec{
+  
+  using namespace DD4hep ;
+  using namespace DDSurfaces ;
+  using namespace DD4hep::DDRec ;
+
+}
+
+/// ddalign namespace
+namespace ddalign{
+
+  using namespace DD4hep::DDAlign ;
+  using namespace DD4hep::Alignments ;
+  using namespace DD4hep::Conditions ;
 }
 
 

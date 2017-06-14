@@ -28,10 +28,9 @@
 
 using namespace std ;
 using namespace lcio;
-using namespace dd4hep ;
 
 
-static DDTest test( "cellid_position_converter" ) ; 
+static ddcore::DDTest test( "cellid_position_converter" ) ; 
 
 //=============================================================================
 
@@ -39,8 +38,8 @@ const double epsilon = dd4hep::micrometer ;
 const int maxHit = 100 ;
 
 
-double dist( const Position& p0, const Position& p1 ){
-  Position p2 = p1 - p0 ;
+double dist( const ddcore::Position& p0, const ddcore::Position& p1 ){
+  ddcore::Position p2 = p1 - p0 ;
   return p2.r() ;
 } 
 
@@ -68,11 +67,11 @@ int main_wrapper(int argc, char** argv ){
   
   std::string inFile =  argv[1] ;
 
-  dd4hep::DetDescription& detDesc = dd4hep::DetDescription::getInstance();
+  ddcore::DetDescription& detDesc = ddcore::DetDescription::getInstance();
 
   detDesc.fromCompact( inFile );
 
-  CellIDPositionConverter idposConv( detDesc )  ;
+  ddrec::CellIDPositionConverter idposConv( detDesc )  ;
 
   
   //---------------------------------------------------------------------
@@ -120,8 +119,8 @@ int main_wrapper(int argc, char** argv ){
 
       std::string cellIDEcoding = col->getParameters().getStringVal("CellIDEncoding") ;
       
-      BitField64 idDecoder0( cellIDEcoding ) ;
-      BitField64 idDecoder1( cellIDEcoding ) ;
+      ddcore::BitField64 idDecoder0( cellIDEcoding ) ;
+      ddcore::BitField64 idDecoder1( cellIDEcoding ) ;
 
       int nHit = std::min( col->getNumberOfElements(), maxHit )  ;
      
@@ -138,13 +137,13 @@ int main_wrapper(int argc, char** argv ){
 	long64 id = idDecoder0.getValue() ;
 	
 
-	Position point( sHit->getPosition()[0]* dd4hep::mm , sHit->getPosition()[1]* dd4hep::mm ,  sHit->getPosition()[2]* dd4hep::mm ) ;
+	ddcore::Position point( sHit->getPosition()[0]* dd4hep::mm , sHit->getPosition()[1]* dd4hep::mm ,  sHit->getPosition()[2]* dd4hep::mm ) ;
 	
 
 	// ====== test cellID to position and position to cellID conversion  ================================
-	DetElement det = idposConv.findDetElement( point ) ;
+	ddcore::DetElement det = idposConv.findDetElement( point ) ;
 	
-	CellID idFromDecoder = idposConv.cellID( point ) ;
+	ddcore::CellID idFromDecoder = idposConv.cellID( point ) ;
 
         idDecoder1.setValue( idFromDecoder ) ;
 
@@ -159,7 +158,7 @@ int main_wrapper(int argc, char** argv ){
 	else
 	  tMap[ colNames[icol] ].cellid.failed++ ;
 	  
-	Position pointFromDecoder = idposConv.position( id ) ;
+	ddcore::Position pointFromDecoder = idposConv.position( id ) ;
 
 	double d = dist(pointFromDecoder, point)  ;
 	std::stringstream sst1 ;
