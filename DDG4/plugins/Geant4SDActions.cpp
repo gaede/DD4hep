@@ -142,7 +142,14 @@ namespace dd4hep {
           hit->cellID = cellID(step);
           except("+++ Invalid CELL ID for hit!");
         }
+#if 1 // debug of hit and cell positions
+	Position prePos    = h.prePos();
+	Position postPos   = h.postPos();
+	Position g4pos     = mean_direction(prePos,postPos);
+	printf(" *** CALOSTEP:  %e %e %e  %e %e %e  %e %e %e \n",  g4pos.x() , g4pos.y() ,  g4pos.z() , global.x() ,  global.y() , global.z() , pos.x() ,  pos.y() , pos.z()  )  ;
+#endif
       }
+
       hit->truth.push_back(contrib);
       hit->energyDeposit += contrib.deposit;
       mark(step);
