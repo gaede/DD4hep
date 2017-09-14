@@ -146,7 +146,7 @@ namespace dd4hep {
 	Position prePos    = h.prePos();
 	Position postPos   = h.postPos();
 	Position g4pos     = mean_direction(prePos,postPos);
-	printf(" *** CALOSTEP:  %e %e %e  %e %e %e  %e %e %e \n",  g4pos.x() , g4pos.y() ,  g4pos.z() , global.x() ,  global.y() , global.z() , pos.x() ,  pos.y() , pos.z()  )  ;
+	printf(" ***CALOSTEP:  %e %e %e  %e %e %e  %e %e %e %u\n",  g4pos.x() , g4pos.y() ,  g4pos.z() , global.x() ,  global.y() , global.z() , pos.x() ,  pos.y() , pos.z() ,  cell)  ;
 #endif
       }
 
